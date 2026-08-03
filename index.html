@@ -404,7 +404,7 @@
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
       <button onclick="switchUser()">Đổi</button>
-      <span class="ver">V1.10.4</span>
+      <span class="ver">V1.10.5</span>
     </div>
   </div>
   <div class="tabs-row">
@@ -620,25 +620,6 @@
 
     <!-- PHIẾU CHI -->
     <div id="paySection" class="hidden">
-      <div class="card">
-        <div class="card-title">🧹 Dọn nhân viên chưa dùng</div>
-        <div class="muted" style="font-size:12.5px;line-height:1.7;margin-bottom:10px;">
-          Tìm các nhân viên <b>chưa có tên</b> và <b>chưa từng phát sinh dữ liệu</b>, để xoá bớt cho hệ thống nhẹ.
-          Bấm nút chỉ để tìm và xem, chưa xoá gì.
-        </div>
-        <div style="background:#F7F9FC;border-radius:9px;padding:11px 13px;font-size:12.5px;line-height:1.9;margin-bottom:11px;">
-          Sẽ xoá nếu thoả <b>cả bốn</b> điều kiện:<br>
-          ① Tên để trống, là "-", hoặc chỉ có dấu gạch<br>
-          ② Chưa từng có phiếu cân nào<br>
-          ③ Chưa từng có phiếu chi nào<br>
-          ④ Chưa từng có số dư đầu kỳ hay tiền cơm
-        </div>
-        <div style="background:#FDF1EF;border:1px solid #F0C9C2;border-radius:10px;padding:11px 13px;font-size:12.5px;line-height:1.6;color:#8E2018;margin-bottom:11px;">
-          <b>Sao lưu trước khi chạy.</b> Và nên đóng app trên các máy khác, chỉ để một máy làm việc này.
-        </div>
-        <button class="btn btn-primary btn-block" onclick="quetNhanVienChuaDung()">🔍 Quét tìm nhân viên chưa dùng</button>
-        <div id="donNvWrap" style="margin-top:12px;"></div>
-      </div>
 
       <div class="card" style="border-color:#C9DDF5;">
         <div class="card-title">📷 Quét mã vạch nhân viên</div>
@@ -839,6 +820,26 @@
 
     <!-- DỮ LIỆU -->
     <div id="cfgDataSection" class="hidden">
+            <div class="card">
+        <div class="card-title">🧹 Dọn nhân viên chưa dùng</div>
+        <div class="muted" style="font-size:12.5px;line-height:1.7;margin-bottom:10px;">
+          Tìm các nhân viên <b>chưa có tên</b> và <b>chưa từng phát sinh dữ liệu</b>, để xoá bớt cho hệ thống nhẹ.
+          Bấm nút chỉ để tìm và xem, chưa xoá gì.
+        </div>
+        <div style="background:#F7F9FC;border-radius:9px;padding:11px 13px;font-size:12.5px;line-height:1.9;margin-bottom:11px;">
+          Sẽ xoá nếu thoả <b>cả bốn</b> điều kiện:<br>
+          ① Tên để trống, là "-", hoặc chỉ có dấu gạch<br>
+          ② Chưa từng có phiếu cân nào<br>
+          ③ Chưa từng có phiếu chi nào<br>
+          ④ Chưa từng có số dư đầu kỳ hay tiền cơm
+        </div>
+        <div style="background:#FDF1EF;border:1px solid #F0C9C2;border-radius:10px;padding:11px 13px;font-size:12.5px;line-height:1.6;color:#8E2018;margin-bottom:11px;">
+          <b>Sao lưu trước khi chạy.</b> Và nên đóng app trên các máy khác, chỉ để một máy làm việc này.
+        </div>
+        <button class="btn btn-primary btn-block" onclick="quetNhanVienChuaDung()">🔍 Quét tìm nhân viên chưa dùng</button>
+        <div id="donNvWrap" style="margin-top:12px;"></div>
+      </div>
+
       <div class="card">
         <div class="card-title">💾 Sao lưu dữ liệu</div>
         <div class="muted" style="font-size:12.5px;margin-bottom:10px;">Tải toàn bộ dữ liệu (nhân viên, mã hàng, phiếu cân, công nợ...) về máy thành 1 file.</div>
