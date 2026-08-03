@@ -404,7 +404,7 @@
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
       <button onclick="switchUser()">Đổi</button>
-      <span class="ver">V1.10.1</span>
+      <span class="ver">V1.10.3</span>
     </div>
   </div>
   <div class="tabs-row">
@@ -1041,7 +1041,7 @@ window.firebaseConfig = {
 // Khoá trang web reCAPTCHA Enterprise cho App Check.
 // Đây là khoá CÔNG KHAI, nằm sẵn trong mã nguồn trang — lộ cũng không sao.
 // Để trống chuỗi này là tắt App Check.
-window.APPCHECK_SITE_KEY = "6Lc6MXMtAAAAAAGPTGic6xVhdF-iOjd6LV5QiaJ2f";
+window.APPCHECK_SITE_KEY = "6LexjnMtAAAAAGDjVlIge-xnBmOFRUqIxEap6hxl";
 
 function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
 function todayKey(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
@@ -4678,8 +4678,12 @@ function batAppCheck(){
     if(location.protocol === 'file:' || location.hostname === 'localhost'){
       self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
     }
-    // reCAPTCHA v3: truyền thẳng khoá trang web dạng chuỗi
-    firebase.appCheck().activate(key, true);   // true = tự động gia hạn giấy thông hành
+    // Khoá tạo từ reCAPTCHA admin nay luôn gắn với dự án Google Cloud,
+    // nên là loại Enterprise — phải dùng đúng lớp này, không truyền chuỗi như v3 thường.
+    firebase.appCheck().activate(
+      new firebase.appCheck.ReCaptchaEnterpriseProvider(key),
+      true   // tự động gia hạn giấy thông hành
+    );
     appCheckDaBat = true;
     console.log('App Check: đã bật');
   }catch(e){
