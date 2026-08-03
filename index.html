@@ -404,7 +404,7 @@
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
       <button onclick="switchUser()">Đổi</button>
-      <span class="ver">V1.10.3</span>
+      <span class="ver">V1.10.4</span>
     </div>
   </div>
   <div class="tabs-row">
@@ -3185,6 +3185,10 @@ function checkWeighAllowed(){
   return { ok:true, flags };
 }
 
+// Chặn một lần bấm sinh ra hai phiếu.
+// Chrome trên MacBook có thể phát sinh hai sự kiện cho một thao tác,
+// cả khi bấm nút lẫn khi nhấn Enter. Safari không bị.
+let lanCanCuoi = { dauVet:'', luc:0 };
 function addWeighing(){
   const dateKey = document.getElementById('weighDate').value || todayKey();
   const kg = Number(document.getElementById('wKgBig').value);
@@ -3193,6 +3197,18 @@ function addWeighing(){
   if(!kg || kg<=0){ alert("Nhập số kg hợp lệ"); return; }
   const gate = checkWeighAllowed();
   if(!gate.ok){ alert(gate.msg); return; }
+  // Cùng nhân viên + cùng mã hàng + cùng số kg trong vòng 0,6 giây -> bỏ qua lần sau.
+  // Không cản trở cân thật: không ai cân xong rồi trong 0,6 giây lại cân đúng số kg đó.
+  const dauVetCan = selectedEmployeeId + '|' + selectedProductId + '|' + kg + '|' + dateKey;
+  if(dauVetCan === lanCanCuoi.dauVet && (Date.now() - lanCanCuoi.luc) < 600){
+    console.warn('Bỏ qua lần bấm NHẬP lặp lại trong 0,6 giây');
+    document.getElementById('wKgBig').value='';
+    updateWeighPricePreview();
+    document.getElementById('wKgBig').focus();
+    return;
+  }
+  lanCanCuoi = { dauVet: dauVetCan, luc: Date.now() };
+
   const p = products.find(x=>x.id===selectedProductId);
   const amount = kg * p.unitPrice;
   const emp = employees.find(x=>x.id===selectedEmployeeId);
