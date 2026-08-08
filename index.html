@@ -436,7 +436,7 @@
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
       <button onclick="switchUser()">Đổi</button>
-      <span class="ver">V1.12.0</span>
+      <span class="ver">V1.12.1</span>
     </div>
   </div>
   <div class="tabs-row">
@@ -914,7 +914,8 @@
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
           <div class="field" style="flex:1 1 120px;"><label>Giữ nhật ký (ngày)</label><input type="number" id="cfgNkGiuNgay" min="3" max="365" step="1"></div>
-          <div class="field" style="flex:1 1 120px;"><label>Báo đỏ sau (giây)</label><input type="number" id="cfgNguongDoGiay" min="15" max="600" step="5"></div>
+          <div class="field" style="flex:1 1 110px;"><label>Báo vàng sau (giây)</label><input type="number" id="cfgNguongVangGiay" min="5" max="300" step="5"></div>
+          <div class="field" style="flex:1 1 110px;"><label>Báo đỏ sau (giây)</label><input type="number" id="cfgNguongDoGiay" min="30" max="600" step="10"></div>
           <div class="field" style="flex:1 1 120px;"><label>Lệch giờ tối đa (phút)</label><input type="number" id="cfgNguongLechPhut" min="1" max="120" step="1"></div>
         </div>
         <button class="btn btn-primary btn-block" onclick="luuTuyChonAnToan()">💾 Lưu 3 mốc trên</button>
@@ -1182,7 +1183,9 @@ let appOptions = loadJSON(OPTIONS_KEY, { backupDays:3, kgDecimals:1 });
 // Mac dinh cac khoa chong nhap gian (tat het cho den khi bat trong Cai dat)
 // Mac dinh cho Nhat ky ghi tren may / chi bao dong bo / kiem tra dong ho (V1.12.0)
 if(appOptions.nkGiuNgay     === undefined) appOptions.nkGiuNgay = 30;   // ngay giu nhat ky
-if(appOptions.nguongDoGiay  === undefined) appOptions.nguongDoGiay = 60; // giay -> bao do
+if(appOptions.nguongVangGiay=== undefined) appOptions.nguongVangGiay = 15;// giay -> bao vang
+if(appOptions.nguongDoGiay  === undefined) appOptions.nguongDoGiay = 90; // giay -> bao do
+if(appOptions.nguongDoGiay < 30) appOptions.nguongDoGiay = 90;          // nang moc cu 60s len 90s
 if(appOptions.nguongLechPhut=== undefined) appOptions.nguongLechPhut = 5;// phut lech dong ho -> chan
 if(appOptions.lockHours   === undefined) appOptions.lockHours = false;
 if(appOptions.workStart   === undefined) appOptions.workStart = "05:00";
@@ -4895,56 +4898,88 @@ function updateCloudStatus(state){
    ========================================================================== */
 function demPhieuHomNay(){
   const hk = todayKey();
-  let tong = 0, cho = 0;
-  for(let i=0;i<weighings.length;i++){
-    const w = weighings[i];
-    if(w.dateKey !== hk) continue;
-    tong++;
-    if(idsChoXacNhan.has(w.id)) cho++;
-  }
-  return { tong, cho };
+  let tong = 0;
+  for(let i=0;i<weighings.length;i++){ if(weighings[i].dateKey === hk) tong++; }
+  return tong;
+}
+
+/* Đếm bản ghi ĐANG CÓ VẤN ĐỀ — không đếm bản vừa bấm.
+   Cân 3.000 phiếu/ngày thì lúc nào cũng có phiếu đang bay lên server;
+   phiếu bay dưới 15 giây là bình thường, không được tính là sự cố. */
+function demTonDong(){
+  const now = Date.now();
+  const nVang = nguongVangMs(), nDo = nguongDoMs();
+  let dangBay = 0, vang = 0, do_ = 0;
+  hangDoiGui.forEach(v=>{
+    const tuoi = now - v.luc;
+    if(tuoi >= nDo) do_++;
+    else if(tuoi >= nVang) vang++;
+    else dangBay++;
+  });
+  // Bản ghi server đã TỪ CHỐI thẳng thì đỏ ngay, không cần chờ hết giờ
+  if(phieuLoiGui.length) do_ = Math.max(do_, phieuLoiGui.length);
+  return { dangBay, vang, do_, tonDong: vang + do_ };
 }
 
 function veChiBaoDongBo(){
   const el = document.getElementById('cloudStatus');
   const bar = document.getElementById('syncBar');
   if(!el) return;
-  // Các lỗi nặng đã được updateCloudStatus xử lý trước, ở đây chỉ lo phần đếm.
-  if(phieuLoiGui.length || khoDocLoi.length){ if(bar) bar.classList.remove('show'); return; }
+  if(khoDocLoi.length){ if(bar) bar.classList.remove('show'); return; }
 
-  const { tong, cho } = demPhieuHomNay();
-  const nguongDo = (Number(appOptions.nguongDoGiay) || 60) * 1000;
+  const tong = demPhieuHomNay();
+  const { dangBay, vang, do_, tonDong } = demTonDong();
   const matMang = (navigator && navigator.onLine === false);
-  const choLau = lucChoLauNhat ? (Date.now() - lucChoLauNhat) : 0;
-  const daNhan = Math.max(0, tong - cho);
 
   let lop = 'ok', chu = '', hienBar = false;
+
   if(!fsReady){
-    lop = 'warn'; chu = '☁️ Đang kết nối…';
-  }else if(cho === 0 && !matMang){
-    lop = 'ok';   chu = '● Server đã nhận ' + fmtSo(daNhan) + '/' + fmtSo(tong);
-  }else if(matMang || choLau >= nguongDo){
+    // Hiện số giây tăng dần để biết đang chạy hay đã chết, thay vì "Đang kết nối" chung chung
+    const giay = lucBatDauNoi ? Math.round((Date.now() - lucBatDauNoi)/1000) : 0;
+    lop = hangDoiGui.size ? 'bad' : 'warn';
+    chu = '☁️ Đang mở kết nối… (' + giay + 's)';
+    if(hangDoiGui.size) chu += ' · ' + fmtSo(hangDoiGui.size) + ' phiếu chờ gửi';
+    hienBar = hangDoiGui.size > 0 && giay >= 20;
+  }else if(do_ > 0 || (matMang && tonDong > 0)){
     lop = 'bad';
-    const phut = Math.max(1, Math.round((matMang ? Math.max(choLau, nguongDo) : choLau) / 60000));
-    chu = matMang ? '✖ MÁY ĐANG MẤT MẠNG' : ('✖ MẤT KẾT NỐI SERVER ' + phut + ' phút');
-    hienBar = cho > 0;
+    chu = '✖ ' + fmtSo(do_ || tonDong) + ' phiếu KHÔNG lên được server';
+    hienBar = true;
+  }else if(vang > 0){
+    lop = 'warn';
+    chu = '◐ ' + fmtSo(vang) + ' phiếu chưa lên server';
+  }else if(matMang){
+    lop = 'warn';
+    chu = '◐ Máy đang mất mạng — đã gửi xong ' + fmtSo(tong);
+  }else if(dangBay > 0){
+    // ĐANG CÂN BÌNH THƯỜNG: vẫn xanh
+    lop = 'ok';
+    chu = '● Server đã nhận ' + fmtSo(Math.max(0, tong - dangBay)) + '/' + fmtSo(tong) + ' · đang gửi ' + dangBay;
   }else{
-    lop = 'warn'; chu = '◐ Chưa lên server: ' + fmtSo(cho) + ' phiếu';
+    lop = 'ok';
+    chu = '● Server đã nhận ' + fmtSo(tong) + '/' + fmtSo(tong);
   }
 
   el.innerHTML = '<span class="sync-pill ' + lop + '"></span>';
-  const pill = el.firstChild;
-  pill.textContent = chu;
+  el.firstChild.textContent = chu;
   el.style.color = '';
   el.style.fontWeight = '';
 
   if(bar){
     if(hienBar){
+      const soPhieu = do_ || hangDoiGui.size;
       document.getElementById('syncBarTitle').textContent =
-        '⚠️ ' + fmtSo(cho) + ' phiếu chưa lên server — ĐỪNG TẮT TRÌNH DUYỆT';
+        '⚠️ ' + fmtSo(soPhieu) + ' phiếu chưa lên server — ĐỪNG TẮT TRÌNH DUYỆT';
+      let vi = '';
+      if(phieuLoiGui.length){
+        const lyDo = {}; phieuLoiGui.forEach(x=>{ lyDo[x.lyDo] = 1; });
+        vi = 'Server từ chối: ' + Object.keys(lyDo).join(' · ') + '. ';
+      }else if(!fsReady){
+        vi = 'Chưa mở được kết nối Firebase. ';
+      }else{
+        vi = 'Server không phản hồi cho các phiếu này. ';
+      }
       document.getElementById('syncBarWhy').textContent =
-        'Server không phản hồi từ ' + gioNgan(lucChoLauNhat) +
-        '. Phiếu vẫn được ghi vào Nhật ký trên máy nên không mất, nhưng cần kết nối lại để gửi lên.';
+        vi + 'Phiếu vẫn nằm trong Nhật ký trên máy nên không mất. App đang tự gửi lại mỗi 10 giây.';
       bar.classList.add('show');
     }else{
       bar.classList.remove('show');
@@ -4959,7 +4994,11 @@ function gioNgan(ms){
 }
 // Gửi lại tất cả: vừa thử lại bản bị từ chối, vừa đẩy phần còn tồn đọng
 function thuGuiLaiTatCa(){
-  if(phieuLoiGui.length) thuGuiLai();
+  if(!fsReady){ cloudInit(); }
+  phieuLoiGui = [];
+  veCanhBaoLoi();
+  hangDoiGui.forEach(v=>{ v.lanGui = 0; });   // ép gửi lại ngay, không chờ 8 giây
+  quetHangDoi();
   if(fsReady) syncNow();
   veChiBaoDongBo();
 }
@@ -5000,9 +5039,14 @@ let soMucDangGui = 0;        // số bản ghi đang chờ gửi trong lượt n
 let syncInFlight = false;    // đang gửi -> không chồng lệnh
 let syncQueued = false;      // có thay đổi mới trong lúc đang gửi
 let cloudInitRunning = false;
-// V1.12.0 — mốc thời gian cho chỉ báo đồng bộ
+// V1.12.1 — theo dõi TỪNG bản ghi, không đếm chung.
+// Cân liên tục thì lúc nào cũng có phiếu đang bay lên server — đó là bình thường.
+// Chỉ bản ghi nào QUÁ HẠN mà chưa được xác nhận mới bị tính là có vấn đề.
 let lucServerPhanHoi = 0;    // lần cuối server thật sự phản hồi (không phải bộ nhớ đệm)
-let lucChoLauNhat = 0;       // lúc bắt đầu có bản ghi chờ xác nhận đầu tiên
+let hangDoiGui = new Map();  // id -> { name, doc, luc, lanGui, id }
+function nguongVangMs(){ return (Number(appOptions.nguongVangGiay) || 15) * 1000; }
+function nguongDoMs(){   return (Number(appOptions.nguongDoGiay)   || 90) * 1000; }
+let lucBatDauNoi = 0;        // để hiện số giây khi đang mở kết nối
 let dongHoLechMs = 0;        // chênh lệch giờ máy so với giờ server
 let dongHoDaBoQua = false;   // người dùng bấm bỏ qua cảnh báo lệch giờ
 
@@ -5084,9 +5128,12 @@ function attachRealtimeListeners(){
 
       qs.docs.forEach(d=>{
         if(d.metadata && d.metadata.hasPendingWrites) idsChoXacNhan.add(d.id);
-        else { idsChoXacNhan.delete(d.id); nkXacNhan(name, d.id); }
+        else {
+          idsChoXacNhan.delete(d.id);
+          nkXacNhan(name, d.id);
+          hangDoiGui.delete(String(d.id));   // server đã xác nhận -> rời hàng đợi
+        }
       });
-      if(!idsChoXacNhan.size) lucChoLauNhat = 0;
       const docs = qs.docs.map(d=>d.data());
       COLLECTION_SETTERS[name](docs);
       luuKhoLenMay(name, docs);
@@ -5145,10 +5192,18 @@ function batAppCheck(){
   }
 }
 
+// Bọc một lời hứa bằng đồng hồ đếm ngược — quá hạn thì bỏ qua, không treo app.
+function gioiHanThoiGian(promise, ms, ten){
+  return Promise.race([
+    promise,
+    new Promise((_, tuChoi)=> setTimeout(()=> tuChoi(new Error('Quá hạn ' + (ms/1000) + ' giây khi ' + ten)), ms))
+  ]);
+}
 async function cloudInit(){
   if(!window.firebaseConfig){ updateCloudStatus("off"); finalizeUserGate(); return; }
   if(cloudInitRunning) return;
   cloudInitRunning = true;
+  if(!lucBatDauNoi) lucBatDauNoi = Date.now();
   updateCloudStatus("connecting");
   try{
     if(!firebase.apps.length) firebase.initializeApp(window.firebaseConfig);
@@ -5165,19 +5220,28 @@ async function cloudInit(){
         console.warn("Không bật được bộ nhớ đệm Firebase:", e && e.code);
       }
     }
-    await firebase.auth().signInAnonymously();
-    kiemTraDongHo(false);   // V1.12.0 — so giờ máy với giờ server (miễn phí, không tốn lượt Firestore)
+    // V1.12.1 — MỌI bước khởi động đều có đồng hồ đếm ngược.
+    // Trước đây các lệnh await này không giới hạn thời gian: mạng chập một cái
+    // là fsReady mãi không được bật, app treo ở "Đang kết nối" và phiếu không gửi.
+    await gioiHanThoiGian(firebase.auth().signInAnonymously(), 8000, 'đăng nhập');
+    kiemTraDongHo(false);   // so giờ máy với giờ server (miễn phí, không tốn lượt Firestore)
 
-    // Cài đặt chung: 1 tài liệu, rất nhẹ
-    const settingsDoc = await fsDb.collection("settings").doc("app").get();
-    if(settingsDoc.exists){
-      const sd = settingsDoc.data();
-      if(sd.companyInfo) companyInfo = sd.companyInfo;
-      if(sd.appOptions)  appOptions  = Object.assign({}, appOptions, sd.appOptions);
-      try{
-        localStorage.setItem(COMPANY_KEY, JSON.stringify(companyInfo));
-        localStorage.setItem(OPTIONS_KEY, JSON.stringify(appOptions));
-      }catch(e){}
+    // Cài đặt chung: 1 tài liệu, rất nhẹ. Tải được thì tốt, không thì bỏ qua —
+    // phiếu cân quan trọng hơn, không được chờ vì cái này.
+    try{
+      const settingsDoc = await gioiHanThoiGian(
+        fsDb.collection("settings").doc("app").get(), 8000, 'tải cài đặt');
+      if(settingsDoc && settingsDoc.exists){
+        const sd = settingsDoc.data();
+        if(sd.companyInfo) companyInfo = sd.companyInfo;
+        if(sd.appOptions)  appOptions  = Object.assign({}, appOptions, sd.appOptions);
+        try{
+          localStorage.setItem(COMPANY_KEY, JSON.stringify(companyInfo));
+          localStorage.setItem(OPTIONS_KEY, JSON.stringify(appOptions));
+        }catch(e){}
+      }
+    }catch(e){
+      console.warn('Bỏ qua bước tải cài đặt:', (e && e.message) || e);
     }
 
     // Mốc = dữ liệu đang có trên máy, để chưa vội đẩy gì lên khi vừa mở app.
@@ -5186,8 +5250,11 @@ async function cloudInit(){
     Object.keys(COLLECTIONS).forEach(n=>{ lastSynced[n] = deepCopy(COLLECTIONS[n]()); });
 
     fsReady = true;
+    lucBatDauNoi = 0;
     renderEverything();
     attachRealtimeListeners();
+    quetHangDoi();          // đẩy ngay những bản ghi đã bấm lúc chưa kết nối được
+    veChiBaoDongBo();
   }catch(e){
     console.error("Lỗi kết nối Firebase", e);
     updateCloudStatus("error");
@@ -5270,40 +5337,67 @@ function ghiNhanLoiGui(name, id, doc, err){
   updateCloudStatus();
   renderSoon();
 }
+/* V1.12.1 — LỖI NẶNG ĐÃ VÁ
+   Bản trước: `if(!fsReady) return;` đặt NGAY ĐẦU ghiNgay. Lúc app còn kẹt ở
+   "Đang kết nối", mỗi lần bấm NHẬP phiếu chỉ nằm trong bộ nhớ rồi thôi —
+   KHÔNG gửi đi và KHÔNG có gì gửi lại về sau. Nay mọi bản ghi đều vào
+   hàng đợi trước; chưa kết nối được thì nằm chờ, kết nối xong tự bay lên. */
 function ghiNgay(name, doc){
-  // Nhật ký trên máy ghi TRƯỚC và ghi cả khi Firebase chưa sẵn sàng —
-  // đây là bản sao độc lập, không phụ thuộc kết nối hay App Check.
+  // Nhật ký trên máy ghi TRƯỚC — bản sao độc lập, không phụ thuộc kết nối.
   nkGhi(name, doc);
-  if(!fsReady || !fsDb || !doc || !doc.id) return;
+  if(!doc || !doc.id) return;
+  hangDoiGui.set(String(doc.id), { name, doc, id:String(doc.id), luc:Date.now(), lanGui:0 });
   idsChoXacNhan.add(doc.id);
-  if(!lucChoLauNhat) lucChoLauNhat = Date.now();
-  try{
-    fsDb.collection(name).doc(String(doc.id)).set(doc)
-      .then(()=>{
-        idsChoXacNhan.delete(doc.id);
-        nkXacNhan(name, doc.id);
-        lucServerPhanHoi = Date.now();
-        if(!idsChoXacNhan.size) lucChoLauNhat = 0;
-        veChiBaoDongBo(); renderSoon();
-      })
-      .catch(err=>ghiNhanLoiGui(name, doc.id, doc, err));
-  }catch(e){ ghiNhanLoiGui(name, doc.id, doc, e); }
+  guiMotBanGhi(String(doc.id));
+  veChiBaoDongBo();
 }
 function xoaNgay(name, id){
   nkXoa(name, id);
-  if(!fsReady || !fsDb || !id) return;
+  if(!id) return;
+  hangDoiGui.set(String(id), { name, doc:null, id:String(id), luc:Date.now(), lanGui:0 });
   idsChoXacNhan.add(id);
-  if(!lucChoLauNhat) lucChoLauNhat = Date.now();
+  guiMotBanGhi(String(id));
+  veChiBaoDongBo();
+}
+// Gửi (hoặc gửi lại) đúng một bản ghi trong hàng đợi
+function guiMotBanGhi(id){
+  const v = hangDoiGui.get(String(id));
+  if(!v) return;
+  if(!fsReady || !fsDb) return;   // chưa kết nối: vẫn nằm trong hàng đợi, quét lại sau
+  v.lanGui++;
+  const ref = fsDb.collection(v.name).doc(v.id);
+  const xong = ()=>{
+    hangDoiGui.delete(v.id);
+    idsChoXacNhan.delete(v.id);
+    if(v.doc) nkXacNhan(v.name, v.id);
+    lucServerPhanHoi = Date.now();
+    // bản ghi này từng bị từ chối trước đó -> gỡ khỏi danh sách lỗi
+    if(phieuLoiGui.length){
+      phieuLoiGui = phieuLoiGui.filter(x=>String(x.id)!==v.id);
+      veCanhBaoLoi();
+    }
+    veChiBaoDongBo(); renderSoon();
+  };
+  const hong = err=>{
+    // Giữ nguyên trong hàng đợi để vòng quét thử lại; đồng thời ghi nhận lý do.
+    ghiNhanLoiGui(v.name, v.id, v.doc, err);
+    veChiBaoDongBo();
+  };
   try{
-    fsDb.collection(name).doc(String(id)).delete()
-      .then(()=>{
-        idsChoXacNhan.delete(id);
-        lucServerPhanHoi = Date.now();
-        if(!idsChoXacNhan.size) lucChoLauNhat = 0;
-        veChiBaoDongBo(); renderSoon();
-      })
-      .catch(err=>ghiNhanLoiGui(name, id, null, err));
-  }catch(e){ ghiNhanLoiGui(name, id, null, e); }
+    if(v.doc) ref.set(v.doc).then(xong).catch(hong);
+    else ref.delete().then(xong).catch(hong);
+  }catch(e){ hong(e); }
+}
+// Vòng quét: đẩy lại mọi bản ghi còn tồn trong hàng đợi.
+// Chạy khi vừa kết nối xong và định kỳ mỗi 10 giây.
+function quetHangDoi(){
+  if(!fsReady || !fsDb || !hangDoiGui.size) return;
+  const now = Date.now();
+  hangDoiGui.forEach(v=>{
+    // bản mới gửi dưới 8 giây thì để yên, tránh gửi trùng vô ích
+    if(v.lanGui > 0 && (now - v.luc) < 8000) return;
+    guiMotBanGhi(v.id);
+  });
 }
 
 function cloudSync(){
@@ -5501,11 +5595,13 @@ function nkDonCuThuCong(){
 }
 function luuTuyChonAnToan(){
   const giu  = Number(document.getElementById('cfgNkGiuNgay').value) || 30;
-  const gy   = Number(document.getElementById('cfgNguongDoGiay').value) || 60;
+  const gv   = Number(document.getElementById('cfgNguongVangGiay').value) || 15;
+  const gy   = Number(document.getElementById('cfgNguongDoGiay').value) || 90;
   const lech = Number(document.getElementById('cfgNguongLechPhut').value) || 5;
   appOptions = Object.assign({}, appOptions, {
     nkGiuNgay: Math.min(365, Math.max(3, giu)),
-    nguongDoGiay: Math.min(600, Math.max(15, gy)),
+    nguongVangGiay: Math.min(300, Math.max(5, gv)),
+    nguongDoGiay: Math.min(600, Math.max(30, gy)),
     nguongLechPhut: Math.min(120, Math.max(1, lech)),
   });
   saveAll();
@@ -5518,7 +5614,9 @@ function napTuyChonAnToan(){
   const b = document.getElementById('cfgNguongDoGiay');
   const c = document.getElementById('cfgNguongLechPhut');
   if(a) a.value = Number(appOptions.nkGiuNgay) || 30;
-  if(b) b.value = Number(appOptions.nguongDoGiay) || 60;
+  if(b) b.value = Number(appOptions.nguongDoGiay) || 90;
+  const bv = document.getElementById('cfgNguongVangGiay');
+  if(bv) bv.value = Number(appOptions.nguongVangGiay) || 15;
   if(c) c.value = Number(appOptions.nguongLechPhut) || 5;
   const d = document.getElementById('nkDoiChieuNgay');
   if(d && !d.value) d.value = todayKey();
@@ -5656,8 +5754,13 @@ setInterval(()=>{
   if(!fsReady){ cloudInit(); return; }
   if(khoGhiLoi.length) cloudSync();   // thử lại kho đang lỗi
 }, 20000);
-// V1.12.0 — chỉ báo đồng bộ tự cập nhật mỗi 5 giây (rẻ, chỉ đọc bộ nhớ trong app)
-setInterval(veChiBaoDongBo, 5000);
+// V1.12.1 — chỉ báo tự cập nhật mỗi 3 giây (rẻ, chỉ đọc bộ nhớ trong app)
+setInterval(veChiBaoDongBo, 3000);
+// V1.12.1 — tự gửi lại bản ghi còn tồn trong hàng đợi, 10 giây một lần
+setInterval(()=>{
+  if(!fsReady){ if(!cloudInitRunning) cloudInit(); return; }
+  quetHangDoi();
+}, 10000);
 // V1.12.0 — kiểm tra lại đồng hồ mỗi 30 phút, phòng máy trôi giờ giữa ca
 setInterval(()=>{ if(fsReady) kiemTraDongHo(false); }, 30*60*1000);
 // V1.12.0 — dọn nhật ký quá hạn, chạy sau khi app đã lên hình cho đỡ giật
