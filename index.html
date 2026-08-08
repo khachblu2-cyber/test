@@ -45,6 +45,38 @@
   .brand-user .ver{font-size:9.5px;color:#9FC2E8;}
   /* ===== HÀNG THAO TÁC TRÊN CÙNG ===== */
   /* Cảnh báo server từ chối ghi */
+  /* ==== V1.12.0: chi bao dong bo + man chan dong ho ==== */
+  .sync-pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:1px 8px;font-size:10.5px;font-weight:700;line-height:1.6;}
+  .sync-pill.ok{background:rgba(88,214,141,.22);color:#B6F0CE;}
+  .sync-pill.warn{background:rgba(219,155,44,.30);color:#FFE2AC;}
+  .sync-pill.bad{background:#8E2018;color:#fff;}
+  .sync-bar{display:none;background:#8E2018;color:#fff;padding:10px 13px;font-size:13px;line-height:1.5;}
+  .sync-bar.show{display:block;}
+  .sync-bar b{display:block;font-size:14px;margin-bottom:2px;}
+  .sync-bar .why{color:#FFD9D4;font-size:12px;}
+  .sync-bar .acts{margin-top:7px;display:flex;gap:7px;flex-wrap:wrap;}
+  .sync-bar .acts button{background:#fff;color:#8E2018;border:none;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;}
+  .sync-bar .acts button.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.55);}
+  .clock-block{display:none;position:fixed;inset:0;z-index:9999;background:#8E2018;color:#fff;
+    padding:26px 18px;text-align:center;overflow:auto;}
+  .clock-block.show{display:block;}
+  .clock-block .ic{font-size:40px;}
+  .clock-block h3{margin:9px 0 6px;font-size:19px;}
+  .clock-block p{margin:0 auto;font-size:13px;color:#FFD9D4;line-height:1.65;max-width:360px;}
+  .clock-block .clockbox{margin:13px auto;background:rgba(0,0,0,.22);border-radius:9px;padding:11px;max-width:330px;font-size:13px;line-height:1.8;}
+  .clock-block .clockbox i{color:#FFD9D4;font-style:normal;}
+  .clock-block .acts{margin-top:14px;display:flex;gap:9px;justify-content:center;flex-wrap:wrap;}
+  .clock-block .acts button{background:#fff;color:#8E2018;border:none;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;}
+  .clock-block .acts button.ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.55);}
+  .nk-tag{display:inline-block;background:#123E77;color:#fff;font-size:9.5px;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:5px;vertical-align:2px;}
+  table.nk-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:8px;}
+  table.nk-table th{background:var(--blue);color:#fff;padding:5px 6px;text-align:left;font-size:11px;}
+  table.nk-table td{border:1px solid var(--line);padding:5px 6px;}
+  table.nk-table td.r{text-align:right;}
+  table.nk-table tr.miss{background:#FDECEA;}
+  .nk-pill{display:inline-block;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700;}
+  .nk-pill.no{background:#FDECEA;color:#8E2018;}
+  .nk-pill.yes{background:#E5F5EC;color:#1E6B48;}
   .err-bar{display:none;background:#8E2018;color:#fff;padding:10px 13px;font-size:13px;line-height:1.5;}
   .err-bar.show{display:block;}
   .err-bar b{display:block;font-size:14px;margin-bottom:2px;}
@@ -350,22 +382,22 @@
   .id-card-line{font-size:2.2mm;color:#555;margin-top:0.8mm;line-height:1.3;}
   #idcard-barcode,#previewBarcode{display:block;width:100%;height:9mm;padding:0 4mm 2mm;flex-shrink:0;}
   /* ===== PHIEU CHI - kieu bill 80mm dat trong trang A4 (giong phan mem cu) ===== */
-  .bill80-page{width:72mm;box-sizing:border-box;padding:2mm 1.5mm 4mm;margin:0;font-family:'Times New Roman',Times,serif;font-size:3.1mm;line-height:1.35;color:#000;background:#fff;}
+  .bill80-page{width:72mm;box-sizing:border-box;padding:2mm 1.5mm 4mm;margin:0;font-family:'Times New Roman',Times,serif;font-size:4.5mm;line-height:1.35;color:#000;background:#fff;}
   .bill80-page .b-center{text-align:center;}
   .bill80-page .b-bold{font-weight:700;}
   .bill80-page .b-r{text-align:right;}
-  .bill80-page .b-co{font-size:4.4mm;font-weight:700;text-align:center;line-height:1.2;}
-  .bill80-page .b-sub{font-size:3.0mm;text-align:center;margin-top:1.6mm;}
-  .bill80-page .b-title{font-size:5.0mm;font-weight:700;text-align:center;margin:2.4mm 0 1.6mm;}
-  .bill80-page .b-info{font-size:3.1mm;margin-bottom:0.6mm;}
-  .bill80-page table.b-tbl{width:100%;border-collapse:collapse;font-size:3.1mm;margin-top:1.2mm;}
-  .bill80-page table.b-tbl th,.bill80-page table.b-tbl td{border:0.3mm solid #000;padding:0.7mm 1mm;}
+  .bill80-page .b-co{font-size:5.6mm;font-weight:700;text-align:center;line-height:1.2;}
+  .bill80-page .b-sub{font-size:4.0mm;text-align:center;margin-top:1.6mm;}
+  .bill80-page .b-title{font-size:6.6mm;font-weight:700;text-align:center;margin:2.4mm 0 1.6mm;}
+  .bill80-page .b-info{font-size:4.5mm;margin-bottom:1.1mm;}
+  .bill80-page table.b-tbl{width:100%;border-collapse:collapse;font-size:4.6mm;margin-top:1.2mm;}
+  .bill80-page table.b-tbl th,.bill80-page table.b-tbl td{border:0.3mm solid #000;padding:1.3mm 0.8mm;}
   .bill80-page table.b-tbl th{font-weight:700;text-align:center;}
-  .bill80-page table.b-tbl td.b-stt{text-align:center;width:9mm;}
+  .bill80-page table.b-tbl td.b-stt{text-align:center;width:7mm;}
   .bill80-page table.b-tbl td.b-date{text-align:center;}
   .bill80-page table.b-tbl td.b-amt{text-align:right;}
-  .bill80-page .b-words{font-size:3.1mm;margin-top:1mm;}
-  .bill80-page .b-sign{text-align:center;font-size:3.1mm;margin-top:9mm;}
+  .bill80-page .b-words{font-size:4.5mm;margin-top:1.6mm;}
+  .bill80-page .b-sign{text-align:center;font-size:4.5mm;margin-top:9mm;}
   .receipt-page{background:#fff;padding:20px;border:1px solid #ccc;border-radius:8px;margin-bottom:16px;font-family:'Inter',sans-serif;}
   .receipt-header{text-align:center;margin-bottom:14px;border-bottom:2px solid var(--ink);padding-bottom:10px;}
   .receipt-header h2{margin:0;font-size:18px;}
@@ -404,7 +436,7 @@
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
       <button onclick="switchUser()">Đổi</button>
-      <span class="ver">V1.10.5</span>
+      <span class="ver">V1.12.0</span>
     </div>
   </div>
   <div class="tabs-row">
@@ -422,6 +454,29 @@
       <button onclick="thuGuiLai()">Thử gửi lại</button>
       <button class="ghost" onclick="luuPhieuLoiRaFile()">Lưu ra file</button>
       <button class="ghost" onclick="anCanhBaoLoi()">Ẩn</button>
+    </div>
+  </div>
+  <div class="sync-bar" id="syncBar">
+    <b id="syncBarTitle"></b>
+    <div class="why" id="syncBarWhy"></div>
+    <div class="acts">
+      <button onclick="thuGuiLaiTatCa()">Thử gửi lại</button>
+      <button class="ghost" onclick="nkLuuRaFile()">Lưu ra file</button>
+    </div>
+  </div>
+  <div class="clock-block" id="clockBlock">
+    <div class="ic">🕒</div>
+    <h3>ĐỒNG HỒ MÁY NÀY SAI GIỜ</h3>
+    <p>Giờ máy lệch so với giờ server. Cân tiếp sẽ bị Firebase từ chối và có nguy cơ mất phiếu.</p>
+    <div class="clockbox">
+      Giờ máy này &nbsp;<b id="clockLocal">–</b><br>
+      <i>Giờ server &nbsp;&nbsp;<span id="clockServer">–</span></i><br>
+      <i id="clockDiff">–</i>
+    </div>
+    <p>Chỉnh giờ Windows: bấm chuột phải vào đồng hồ góc phải màn hình → <b>Điều chỉnh ngày và giờ</b> → bật <b>Đặt giờ tự động</b> → bấm <b>Đồng bộ ngay</b>.</p>
+    <div class="acts">
+      <button onclick="kiemTraDongHo(true)">Đã chỉnh xong — Kiểm tra lại</button>
+      <button class="ghost" onclick="boQuaDongHo()">Bỏ qua (không khuyến khích)</button>
     </div>
   </div>
   <!-- Hàng tìm kiếm dính theo, chỉ hiện ở tab Cân tôm -->
@@ -596,6 +651,10 @@
 
     <!-- SỐ DƯ ĐẦU KỲ -->
     <div id="openSection">
+      <button class="btn btn-outline btn-block" onclick="moGonSoDuDauKy()" style="margin-bottom:12px;text-align:left;">
+        <span id="openToggleIcon">▸</span> Số dư đầu kỳ <span class="muted" style="font-weight:400;font-size:12px;">— ít dùng, bấm để mở</span>
+      </button>
+      <div id="openBody" class="hidden">
       <div class="card">
         <div class="card-title">Thêm số dư đầu kỳ</div>
         <div class="field">
@@ -631,6 +690,7 @@
         <div class="card-title">Bảng kê phiếu chi</div>
         <div id="payListWrap"></div>
       </div>
+      </div>
     </div>
 
     <!-- TỔNG HỢP CÔNG NỢ -->
@@ -658,6 +718,7 @@
         </div>
         <div class="field">
           <label>Nhân viên</label>
+          <input type="text" id="detailEmpSearch" placeholder="🔍 Gõ mã hoặc tên để lọc danh sách bên dưới…" oninput="populateDetailEmployeeSelect()" style="margin-bottom:7px;">
           <select id="detailEmployee" onchange="renderDebtDetail()"><option value="">-- Tất cả nhân viên --</option></select>
         </div>
       </div>
@@ -838,6 +899,35 @@
         </div>
         <button class="btn btn-primary btn-block" onclick="quetNhanVienChuaDung()">🔍 Quét tìm nhân viên chưa dùng</button>
         <div id="donNvWrap" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="card" style="border-color:#C9DDF5;">
+        <div class="card-title" style="color:var(--blue-dk);">🛡️ Nhật ký ghi trên máy <span class="nk-tag">MỚI</span></div>
+        <div class="muted" style="font-size:12.5px;line-height:1.7;margin-bottom:10px;">
+          Mỗi phiếu cân được ghi thêm một bản vào kho riêng của app, <b>hoàn toàn tách khỏi bộ nhớ đệm Firebase</b>.
+          Server từ chối, mất mạng hay F5 đều không xoá được bản này.
+        </div>
+        <div id="nkThongKeWrap" style="background:#F7F9FC;border-radius:9px;padding:11px 13px;font-size:12.5px;">Đang đọc nhật ký…</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+          <button class="btn btn-outline" onclick="nkVeThongKe()">🔄 Xem lại</button>
+          <button class="btn btn-outline" onclick="nkDonCuThuCong()">🧹 Dọn bản quá hạn</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+          <div class="field" style="flex:1 1 120px;"><label>Giữ nhật ký (ngày)</label><input type="number" id="cfgNkGiuNgay" min="3" max="365" step="1"></div>
+          <div class="field" style="flex:1 1 120px;"><label>Báo đỏ sau (giây)</label><input type="number" id="cfgNguongDoGiay" min="15" max="600" step="5"></div>
+          <div class="field" style="flex:1 1 120px;"><label>Lệch giờ tối đa (phút)</label><input type="number" id="cfgNguongLechPhut" min="1" max="120" step="1"></div>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="luuTuyChonAnToan()">💾 Lưu 3 mốc trên</button>
+      </div>
+
+      <div class="card" style="border-color:#C9DDF5;">
+        <div class="card-title" style="color:var(--blue-dk);">🔍 Đối chiếu với server <span class="nk-tag">MỚI</span></div>
+        <div class="muted" style="font-size:12.5px;line-height:1.7;margin-bottom:10px;">
+          So từng phiếu trong nhật ký máy với dữ liệu đang có trên server, chỉ ra đúng phiếu nào còn thiếu để gửi lại.
+        </div>
+        <div class="field"><label>Đối chiếu ngày</label><input type="date" id="nkDoiChieuNgay"></div>
+        <button class="btn btn-primary btn-block" onclick="nkDoiChieu()">🔍 Đối chiếu</button>
+        <div id="nkDoiChieuWrap" style="margin-top:12px;"></div>
       </div>
 
       <div class="card">
@@ -1090,6 +1180,10 @@ let currentUser = null;
 let companyInfo = loadJSON(COMPANY_KEY, { name:"", address:"", phone:"" });
 let appOptions = loadJSON(OPTIONS_KEY, { backupDays:3, kgDecimals:1 });
 // Mac dinh cac khoa chong nhap gian (tat het cho den khi bat trong Cai dat)
+// Mac dinh cho Nhat ky ghi tren may / chi bao dong bo / kiem tra dong ho (V1.12.0)
+if(appOptions.nkGiuNgay     === undefined) appOptions.nkGiuNgay = 30;   // ngay giu nhat ky
+if(appOptions.nguongDoGiay  === undefined) appOptions.nguongDoGiay = 60; // giay -> bao do
+if(appOptions.nguongLechPhut=== undefined) appOptions.nguongLechPhut = 5;// phut lech dong ho -> chan
 if(appOptions.lockHours   === undefined) appOptions.lockHours = false;
 if(appOptions.workStart   === undefined) appOptions.workStart = "05:00";
 if(appOptions.workEnd     === undefined) appOptions.workEnd   = "19:00";
@@ -1440,6 +1534,7 @@ function setConfigSection(s){
   document.getElementById('cfgOptionsSection').classList.toggle('hidden', s!=='options');
   document.getElementById('cfgSecuritySection').classList.toggle('hidden', s!=='security');
   document.getElementById('cfgDataSection').classList.toggle('hidden', s!=='data');
+  if(s==='data'){ napTuyChonAnToan(); nkVeThongKe(); }
   document.getElementById('cfgUsersSection').classList.toggle('hidden', s!=='users');
   document.getElementById('cfgLockSection').classList.toggle('hidden', s!=='lock');
   document.getElementById('cfgLogSection').classList.toggle('hidden', s!=='log');
@@ -1473,10 +1568,12 @@ function saveCompanyInfo(){
   alert("Đã lưu thông tin công ty.");
 }
 function saveOptions(){
-  appOptions = {
+  // Gop chu khong ghi de: truoc day dong nay xoa mat cai dat Khoa nhap
+  // (lockHours/lockDevice/lockGps...) va cac tuy chon moi cua V1.12.0.
+  appOptions = Object.assign({}, appOptions, {
     backupDays: Number(document.getElementById('cfgBackupDays').value) || 3,
     kgDecimals: Number(document.getElementById('cfgKgDecimals').value) || 1,
-  };
+  });
   saveAll();
   alert("Đã lưu tuỳ chọn.");
 }
@@ -3159,6 +3256,12 @@ setInterval(()=>{ if(appOptions.lockGps) refreshGpsCheck(); }, 120000);
 
 function checkWeighAllowed(){
   const flags = [];
+  // V1.12.0 — giờ máy sai làm Firebase từ chối ghi và gây mất phiếu
+  const nguongLech = (Number(appOptions.nguongLechPhut) || 5) * 60000;
+  if(Math.abs(dongHoLechMs) >= nguongLech && !dongHoDaBoQua){
+    return { ok:false, msg:'⛔ Đồng hồ máy này sai giờ (lệch ' + Math.round(Math.abs(dongHoLechMs)/60000) +
+                          ' phút). Chỉnh lại giờ máy rồi mở lại app.' };
+  }
   if(can('bypassLock') && currentUser) return { ok:true, flags:[] };
   // 1. Khung giờ
   if(appOptions.lockHours){
@@ -3741,7 +3844,12 @@ function confirmPaymentAndPrintBill(){
   const note = "Chi cho các ngày: " + checkedDays.map(d=>new Date(d.dateKey+"T00:00:00").toLocaleDateString("vi-VN")).join(", ");
   if(!can('pay')){ alert("Tài khoản của bạn không có quyền chi tiền"); return; }
   billPrintLockUntil = Date.now() + 2000;
-  const phieuChi = { id: uid(), employeeId, dateKey, type, amount, note, paidDates: checkedDays.map(d=>d.dateKey), createdAt: Date.now(),
+  const phieuChi = { id: uid(), employeeId, dateKey, type, amount, note,
+    paidDates: checkedDays.map(d=>d.dateKey),
+    // Lưu luôn số tiền TỪNG NGÀY để in lại về sau chính xác tuyệt đối,
+    // kể cả khi phiếu cân của những ngày đó bị sửa hay xoá.
+    chiTietNgay: checkedDays.map(d=>({ dateKey: d.dateKey, amount: d.amount })),
+    createdAt: Date.now(),
     byUserId: currentUser?currentUser.id:'', byUserName: currentUser?currentUser.name:'', deviceId: thisDeviceId() };
   payments.push(phieuChi);
   ghiNgay('payments', phieuChi);
@@ -3785,7 +3893,32 @@ function docSoThanhChu(n){
   return out.charAt(0).toUpperCase() + out.slice(1);
 }
 
-function printBill80(emp, type, amount, checkedDays){
+// In lại một phiếu chi đã lập — dùng khi hết giấy, kẹt giấy, hoặc in hỏng.
+function inLaiPhieuChi(id){
+  const p = payments.find(x=>x.id===id);
+  if(!p){ alert("Không tìm thấy phiếu chi này."); return; }
+  const emp = employees.find(e=>e.id===p.employeeId);
+  if(!emp){ alert("Nhân viên của phiếu này đã bị xoá khỏi danh mục."); return; }
+
+  let cacNgay;
+  if(Array.isArray(p.chiTietNgay) && p.chiTietNgay.length){
+    // Phiếu lập từ bản này trở đi: có sẵn số tiền từng ngày, in lại chính xác tuyệt đối
+    cacNgay = p.chiTietNgay;
+  }else{
+    // Phiếu cũ: chỉ lưu danh sách ngày, phải tính lại tiền từng ngày từ phiếu cân
+    cacNgay = (p.paidDates || []).map(dk=>({ dateKey: dk, amount: tienCongNgay(p.employeeId, dk) }));
+    const tinhLai = cacNgay.reduce((s,d)=>s+d.amount, 0);
+    if(tinhLai !== p.amount){
+      alert("Lưu ý: phiếu cân của những ngày này đã thay đổi sau khi lập phiếu.\n\n"
+        + "Tổng đã trả thật: " + formatMoney(p.amount) + "\n"
+        + "Tính lại theo dữ liệu hiện tại: " + formatMoney(tinhLai) + "\n\n"
+        + "Phiếu in ra sẽ ghi tổng đã trả thật.");
+    }
+  }
+  printBill80(emp, p.type, p.amount, cacNgay, true);
+}
+
+function printBill80(emp, type, amount, checkedDays, laInLai){
   const now = new Date();
   const pad = v => String(v).padStart(2,'0');
   const h24 = now.getHours();
@@ -3807,6 +3940,7 @@ function printBill80(emp, type, amount, checkedDays){
       <div class="b-info">Tên : ${escapeHtml(emp.name||'')}</div>
       <div class="b-info">Ngày : ${now.toLocaleDateString('vi-VN')}</div>
       <div class="b-info">Ngày in: ${printStamp}</div>
+      ${laInLai ? '<div class="b-center b-bold" style="margin:1.4mm 0;border:0.4mm solid #000;padding:1mm;">*** IN LẠI ***</div>' : ''}
       <table class="b-tbl">
         <tr><th style="width:9mm;">STT</th><th>Ngày tháng</th><th>Số tiền</th></tr>
         ${rows}
@@ -3913,6 +4047,7 @@ function renderPaymentList(){
         </div>
         <div style="display:flex;align-items:center;gap:10px;">
           <div class="amount">${formatMoney(p.amount)}</div>
+          <button class="icon-del" title="In lại phiếu này" onclick="inLaiPhieuChi('${p.id}')">🖨</button>
           <button class="icon-del" onclick="deletePayment('${p.id}')">🗑</button>
         </div>
       </div>
@@ -3967,7 +4102,8 @@ function toggleDebtReportShowAll(){ debtReportShowAll = !debtReportShowAll; rend
 function renderDebtReport(){
   const wrap = document.getElementById('debtReportWrap');
   if(employees.length===0){ wrap.innerHTML = `<div class="empty-state">Chưa có nhân viên nào</div>`; return; }
-  const allRows = buildDebtReportRows();
+  const allRows = buildDebtReportRows()
+    .sort((a,b)=> String(a.code).localeCompare(String(b.code), 'vi', {numeric:true}));
   const hiddenCount = allRows.filter(r=>r.con===0).length;
   const rows = debtReportShowAll ? allRows : allRows.filter(r=>r.con!==0);
   const tongDauKy = rows.reduce((s,r)=>s+r.dauKy,0);
@@ -4027,11 +4163,36 @@ function exportDebtReportExcel(){
 }
 
 // ===== CHI TIẾT CÔNG NỢ THEO KỲ (Đầu kỳ / Tăng / Giảm / Cuối kỳ) =====
+function moGonSoDuDauKy(){
+  const body = document.getElementById('openBody');
+  const icon = document.getElementById('openToggleIcon');
+  const dangDong = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !dangDong);
+  icon.textContent = dangDong ? '▾' : '▸';
+}
+
+// Bỏ dấu tiếng Việt để gõ không dấu vẫn tìm được: "thuy" ra cả Thủy lẫn Thúy
+function boDau(str){
+  return String(str||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+}
+
 function populateDetailEmployeeSelect(){
   const sel = document.getElementById('detailEmployee');
+  if(!sel) return;
   const current = sel.value;
-  sel.innerHTML = `<option value="">-- Tất cả nhân viên --</option>` + employees.map(e=>`<option value="${e.id}">${escapeHtml(e.code)} - ${escapeHtml(e.name)}</option>`).join('');
-  sel.value = current;
+  const q = boDau(((document.getElementById('detailEmpSearch')||{}).value || '').trim());
+  // Sắp theo mã nhân viên tăng dần, và lọc theo ô tìm nếu có gõ (gõ không dấu vẫn ra)
+  const ds = employees
+    .filter(e=> !q || boDau(e.code+' '+e.name).includes(q))
+    .sort((a,b)=> String(a.code).localeCompare(String(b.code), 'vi', {numeric:true}));
+  const nhan = q ? `-- ${ds.length} người khớp --` : '-- Tất cả nhân viên --';
+  sel.innerHTML = `<option value="">${nhan}</option>`
+    + ds.map(e=>`<option value="${e.id}">${escapeHtml(e.code)} - ${escapeHtml(e.name)}</option>`).join('');
+  // giữ lại người đang chọn nếu vẫn nằm trong danh sách đã lọc
+  if(current && ds.some(e=>e.id===current)) sel.value = current;
+  else if(current && !q) sel.value = current;
+  else { sel.value = ''; renderDebtDetail(); }
 }
 function dateKeysBetween(fromKey, toKey){
   const out = [];
@@ -4300,24 +4461,33 @@ function tronNghin(v){ return Math.round((Number(v)||0)/1000)*1000; }
 
 // ===== BẢNG TỔNG HỢP CÂN THEO NGÀY (dạng lưới, mỗi cột 1 mã hàng) =====
 function buildPivotData(dateKey){
-  const dayWeighings = weighings.filter(w=>w.dateKey===dateKey);
-  const empIds = [...new Set(dayWeighings.map(w=>w.employeeId))];
-  const prodIds = [...new Set(dayWeighings.map(w=>w.productId))];
-  // Sắp xếp cột mã hàng theo thứ tự trong danh mục
-  const orderedProdIds = products.map(p=>p.id).filter(id=>prodIds.includes(id));
-  const rows = empIds.map(empId=>{
-    const emp = employees.find(e=>e.id===empId);
-    const cellsByProduct = {};
-    let totalKg = 0;
-    orderedProdIds.forEach(pid=>{
-      const kg = dayWeighings.filter(w=>w.employeeId===empId && w.productId===pid).reduce((s,w)=>s+w.weightKg,0);
-      cellsByProduct[pid] = kg;
-      totalKg += kg;
-    });
-    const baseAmount = dayWeighings.filter(w=>w.employeeId===empId).reduce((s,w)=>s+w.amount,0);
-    const mealBonus = mealBonusForDay(empId, dateKey);
-    const grandTotal = tronNghin(baseAmount + mealBonus);   // làm tròn về hàng nghìn
-    return { empId, empCode: emp?emp.code:'', empName: emp?emp.name:'(đã xoá)', cellsByProduct, totalKg, baseAmount, mealBonus, grandTotal };
+  // Gom TOÀN BỘ phiếu trong ngày đúng MỘT LƯỢT.
+  // Trước đây mỗi nhân viên lại quét lại cả ngày cho từng mã hàng -> rất chậm.
+  const gom = {};        // employeeId -> { theoMa, totalKg, baseAmount }
+  const thuTuNV = [];    // giữ đúng thứ tự xuất hiện như trước
+  const coMa = new Set();
+  weighings.forEach(w=>{
+    if(w.dateKey !== dateKey) return;
+    coMa.add(w.productId);
+    let g = gom[w.employeeId];
+    if(!g){ g = gom[w.employeeId] = { theoMa:{}, totalKg:0, baseAmount:0 }; thuTuNV.push(w.employeeId); }
+    g.theoMa[w.productId] = (g.theoMa[w.productId] || 0) + w.weightKg;
+    g.totalKg    += w.weightKg;
+    g.baseAmount += w.amount;
+  });
+
+  const orderedProdIds = products.map(p=>p.id).filter(id=>coMa.has(id));
+  const empMap = new Map(employees.map(e=>[e.id, e]));
+  const ngayTangCa = new Set(overtimeDays.map(o=>o.employeeId + '|' + o.dateKey));
+
+  const rows = thuTuNV.map(empId=>{
+    const g = gom[empId];
+    const emp = empMap.get(empId);
+    const mealBonus = (g.baseAmount > 0 && ngayTangCa.has(empId + '|' + dateKey))
+      ? Math.round(g.baseAmount * 0.1) : 0;
+    return { empId, empCode: emp?emp.code:'', empName: emp?emp.name:'(đã xoá)',
+             cellsByProduct: g.theoMa, totalKg: g.totalKg, baseAmount: g.baseAmount,
+             mealBonus, grandTotal: tronNghin(g.baseAmount + mealBonus) };
   });
   return { orderedProdIds, rows };
 }
@@ -4417,23 +4587,34 @@ function printPivotA4(){
 function buildProductReportData(){
   const fromKey = document.getElementById('prodReportFrom').value || todayKey();
   const toKey = document.getElementById('prodReportTo').value || todayKey();
-  const inRange = weighings.filter(w=> w.dateKey>=fromKey && w.dateKey<=toKey);
-  const prodIds = [...new Set(inRange.map(w=>w.productId))];
-  const orderedProdIds = products.map(p=>p.id).filter(id=>prodIds.includes(id));
+  // Gom một lượt: vừa tổng theo mã hàng, vừa tổng theo cặp người-ngày để tính tiền cơm
+  const theoMa = {};      // productId -> { qty, amount }
+  const congNgay = {};    // employeeId|dateKey -> tổng tiền trong ngày
+  weighings.forEach(w=>{
+    if(w.dateKey < fromKey || w.dateKey > toKey) return;
+    let m = theoMa[w.productId];
+    if(!m) m = theoMa[w.productId] = { qty:0, amount:0 };
+    m.qty    += w.weightKg;
+    m.amount += w.amount;
+    const k = w.employeeId + '|' + w.dateKey;
+    congNgay[k] = (congNgay[k] || 0) + w.amount;
+  });
+
+  const prodMap = new Map(products.map(p=>[p.id, p]));
+  const orderedProdIds = products.map(p=>p.id).filter(id=>theoMa[id]);
   const rows = orderedProdIds.map(pid=>{
-    const p = products.find(x=>x.id===pid);
-    const rowsForProd = inRange.filter(w=>w.productId===pid);
-    const qty = rowsForProd.reduce((s,w)=>s+w.weightKg,0);
-    const amount = rowsForProd.reduce((s,w)=>s+w.amount,0);
+    const p = prodMap.get(pid);
+    const { qty, amount } = theoMa[pid];
     const unitPrice = qty>0 ? Math.round(amount/qty) : (p?p.unitPrice:0);
     return { code: p?p.code:'', name: p?p.name:'(đã xoá)', qty, unitPrice, amount };
   });
-  // Cộng thêm 1 dòng Tiền cơm tăng ca (không thuộc mã hàng nào) nếu có phát sinh trong khoảng
-  const mealPairs = [...new Set(inRange.map(w=>w.employeeId+'|'+w.dateKey))];
-  const mealTotal = mealPairs.reduce((s,pair)=>{
-    const [empId, dk] = pair.split('|');
-    return s + mealBonusForDay(empId, dk);
-  }, 0);
+
+  // Tiền cơm tăng ca: dùng bảng đã gom, không quét lại phiếu cho từng cặp
+  const ngayTangCa = new Set(overtimeDays.map(o=>o.employeeId + '|' + o.dateKey));
+  let mealTotal = 0;
+  Object.keys(congNgay).forEach(k=>{
+    if(ngayTangCa.has(k)) mealTotal += Math.round(congNgay[k] * 0.1);
+  });
   if(mealTotal > 0){
     rows.push({ code: '', name: 'Tiền cơm tăng ca (+10%)', qty: '', unitPrice: '', amount: mealTotal, isMeal:true });
   }
@@ -4517,6 +4698,159 @@ function printProductReportA4(){
 }
 
 
+
+/* ==========================================================================
+   V1.12.0 — A. NHẬT KÝ GHI TRÊN MÁY (kho riêng, Firestore không đụng tới)
+   --------------------------------------------------------------------------
+   Vì sao cần: từ V1.6.0 phiếu cân không còn chép vào localStorage nữa (vỡ
+   trần 5 MB), nên phiếu chỉ tồn tại trong bộ nhớ đệm của Firestore. Khi server
+   TỪ CHỐI (App Check 403, hết hạn mức, sai quy tắc), Firestore huỷ các bản ghi
+   đang chờ và cuộn bộ nhớ đệm về đúng trạng thái server — phiếu biến mất sau F5.
+   Kho này nằm ở IndexedDB TÊN KHÁC, Firestore không có quyền trên đó.
+   ========================================================================== */
+const NK_DB   = 'cantom_nhatky';
+const NK_STORE= 'ghi';
+let nkDb = null, nkDangMo = null, nkTat = false;
+
+function nkMo(){
+  if(nkDb) return Promise.resolve(nkDb);
+  if(nkTat) return Promise.resolve(null);
+  if(nkDangMo) return nkDangMo;
+  nkDangMo = new Promise(resolve=>{
+    try{
+      if(!window.indexedDB){ nkTat = true; return resolve(null); }
+      const req = indexedDB.open(NK_DB, 1);
+      req.onupgradeneeded = ev=>{
+        const db = ev.target.result;
+        if(!db.objectStoreNames.contains(NK_STORE)){
+          const st = db.createObjectStore(NK_STORE, { keyPath:'key' });
+          st.createIndex('at','at',{unique:false});
+          st.createIndex('dk','dk',{unique:false});
+        }
+      };
+      req.onsuccess = ()=>{ nkDb = req.result; resolve(nkDb); };
+      req.onerror = ()=>{
+        console.warn('Nhật ký: không mở được kho —', req.error && req.error.name);
+        nkTat = true; resolve(null);
+      };
+    }catch(e){ console.warn('Nhật ký: lỗi mở kho', e); nkTat = true; resolve(null); }
+  });
+  return nkDangMo;
+}
+
+// Ghi một bản ghi vào nhật ký. Chạy nền, KHÔNG chặn nút NHẬP.
+function nkGhi(name, doc){
+  if(!doc || !doc.id) return;
+  nkMo().then(db=>{
+    if(!db) return;
+    try{
+      const tx = db.transaction(NK_STORE,'readwrite');
+      tx.objectStore(NK_STORE).put({
+        key: name+'|'+doc.id,
+        name, id: String(doc.id), op:'set',
+        dk: doc.dateKey || todayKey(),
+        at: Date.now(),
+        xn: 0,               // 0 = server chưa xác nhận, 1 = đã xác nhận
+        huy: 0,              // 1 = server đã huỷ bản ghi này (rollback)
+        doc: doc
+      });
+    }catch(e){ console.warn('Nhật ký: không ghi được', e); }
+  });
+}
+// Đánh dấu server đã xác nhận
+function nkXacNhan(name, id){
+  nkCapNhat(name, id, r=>{ r.xn = 1; r.huy = 0; return r; });
+}
+// Đánh dấu bản ghi bị server huỷ (chưa từng xác nhận mà đã biến mất)
+function nkDanhDauHuy(name, id){
+  nkCapNhat(name, id, r=>{ if(r.xn === 1) return null; r.huy = 1; return r; });
+}
+// Xoá thật (người dùng chủ động xoá, hoặc máy khác xoá bản đã xác nhận)
+function nkXoa(name, id){
+  nkCapNhat(name, id, r=>{ r.op = 'del'; r.at = Date.now(); r.doc = null; return r; });
+}
+function nkCapNhat(name, id, fn){
+  if(!id) return;
+  nkMo().then(db=>{
+    if(!db) return;
+    try{
+      const tx = db.transaction(NK_STORE,'readwrite');
+      const st = tx.objectStore(NK_STORE);
+      const g = st.get(name+'|'+id);
+      g.onsuccess = ()=>{
+        const r = g.result;
+        if(!r) return;
+        const out = fn(r);
+        if(out) st.put(out);
+      };
+    }catch(e){ console.warn('Nhật ký: không cập nhật được', e); }
+  });
+}
+
+// Đọc toàn bộ bản ghi 'set' của một kho trong một ngày
+function nkDocTheoNgay(name, dateKey){
+  return nkMo().then(db=>{
+    if(!db) return [];
+    return new Promise(resolve=>{
+      try{
+        const tx = db.transaction(NK_STORE,'readonly');
+        const req = tx.objectStore(NK_STORE).index('dk').getAll(String(dateKey));
+        req.onsuccess = ()=> resolve((req.result||[]).filter(r=>r.name===name && r.op==='set'));
+        req.onerror   = ()=> resolve([]);
+      }catch(e){ resolve([]); }
+    });
+  });
+}
+
+// Thống kê: đếm theo ngày + ước lượng dung lượng
+function nkThongKe(){
+  return nkMo().then(db=>{
+    if(!db) return null;
+    return new Promise(resolve=>{
+      try{
+        const tx = db.transaction(NK_STORE,'readonly');
+        const req = tx.objectStore(NK_STORE).getAll();
+        req.onsuccess = ()=>{
+          const rows = req.result || [];
+          const theoNgay = {};
+          let bytes = 0, soHuy = 0, soChuaXn = 0;
+          rows.forEach(r=>{
+            bytes += (JSON.stringify(r) || '').length;
+            if(r.op !== 'set') return;
+            theoNgay[r.dk] = (theoNgay[r.dk] || 0) + 1;
+            if(r.huy === 1) soHuy++;
+            else if(r.xn !== 1) soChuaXn++;
+          });
+          resolve({ tong: rows.length, theoNgay, bytes, soHuy, soChuaXn });
+        };
+        req.onerror = ()=> resolve(null);
+      }catch(e){ resolve(null); }
+    });
+  });
+}
+
+// Dọn bản cũ hơn N ngày
+function nkDonCu(soNgay){
+  const moc = Date.now() - (Number(soNgay)||30)*24*60*60*1000;
+  return nkMo().then(db=>{
+    if(!db) return 0;
+    return new Promise(resolve=>{
+      try{
+        const tx = db.transaction(NK_STORE,'readwrite');
+        const st = tx.objectStore(NK_STORE);
+        const req = st.index('at').openCursor(IDBKeyRange.upperBound(moc));
+        let n = 0;
+        req.onsuccess = ev=>{
+          const cur = ev.target.result;
+          if(cur){ cur.delete(); n++; cur.continue(); }
+          else resolve(n);
+        };
+        req.onerror = ()=> resolve(n);
+      }catch(e){ resolve(0); }
+    });
+  });
+}
+
 // ===== CLOUD SYNC (Firebase Firestore) =====
 function updateCloudStatus(state){
   const el = document.getElementById('cloudStatus');
@@ -4539,15 +4873,95 @@ function updateCloudStatus(state){
     el.style.color = "#FFD2CC";
     return;
   }
-  const map = {
-    off: "",
-    connecting: "☁️ Đang kết nối…",
-    syncing: soMucDangGui > 0 ? ("☁️ Đang gửi " + soMucDangGui.toLocaleString("en-US") + " mục…") : "☁️ Đang đồng bộ…",
-    synced: "☁️ Đã đồng bộ Firebase",
-    error: "⚠️ Lỗi đồng bộ — vẫn lưu trên máy",
-  };
-  el.textContent = map[state] || "";
-  el.style.color = state === "error" ? "#FFD2CC" : "#B9F5D8";
+  if(state === 'connecting' && !fsReady){
+    el.textContent = "☁️ Đang kết nối…";
+    el.style.color = "#B9F5D8";
+    return;
+  }
+  if(state === 'off'){ el.textContent = ""; return; }
+  if(state === 'syncing' && soMucDangGui > 0){
+    el.textContent = "☁️ Đang gửi " + soMucDangGui.toLocaleString("en-US") + " mục…";
+    el.style.color = "#B9F5D8";
+    return;
+  }
+  veChiBaoDongBo();
+}
+
+/* ==========================================================================
+   V1.12.0 — B. CHỈ BÁO ĐỒNG BỘ THẬT
+   --------------------------------------------------------------------------
+   Trước đây chỉ báo kẹt ở "Đang kết nối…" vì chỉ syncNow mới đặt trạng thái.
+   Nay hiện đúng con số: server đã nhận bao nhiêu / tổng bao nhiêu phiếu hôm nay.
+   ========================================================================== */
+function demPhieuHomNay(){
+  const hk = todayKey();
+  let tong = 0, cho = 0;
+  for(let i=0;i<weighings.length;i++){
+    const w = weighings[i];
+    if(w.dateKey !== hk) continue;
+    tong++;
+    if(idsChoXacNhan.has(w.id)) cho++;
+  }
+  return { tong, cho };
+}
+
+function veChiBaoDongBo(){
+  const el = document.getElementById('cloudStatus');
+  const bar = document.getElementById('syncBar');
+  if(!el) return;
+  // Các lỗi nặng đã được updateCloudStatus xử lý trước, ở đây chỉ lo phần đếm.
+  if(phieuLoiGui.length || khoDocLoi.length){ if(bar) bar.classList.remove('show'); return; }
+
+  const { tong, cho } = demPhieuHomNay();
+  const nguongDo = (Number(appOptions.nguongDoGiay) || 60) * 1000;
+  const matMang = (navigator && navigator.onLine === false);
+  const choLau = lucChoLauNhat ? (Date.now() - lucChoLauNhat) : 0;
+  const daNhan = Math.max(0, tong - cho);
+
+  let lop = 'ok', chu = '', hienBar = false;
+  if(!fsReady){
+    lop = 'warn'; chu = '☁️ Đang kết nối…';
+  }else if(cho === 0 && !matMang){
+    lop = 'ok';   chu = '● Server đã nhận ' + fmtSo(daNhan) + '/' + fmtSo(tong);
+  }else if(matMang || choLau >= nguongDo){
+    lop = 'bad';
+    const phut = Math.max(1, Math.round((matMang ? Math.max(choLau, nguongDo) : choLau) / 60000));
+    chu = matMang ? '✖ MÁY ĐANG MẤT MẠNG' : ('✖ MẤT KẾT NỐI SERVER ' + phut + ' phút');
+    hienBar = cho > 0;
+  }else{
+    lop = 'warn'; chu = '◐ Chưa lên server: ' + fmtSo(cho) + ' phiếu';
+  }
+
+  el.innerHTML = '<span class="sync-pill ' + lop + '"></span>';
+  const pill = el.firstChild;
+  pill.textContent = chu;
+  el.style.color = '';
+  el.style.fontWeight = '';
+
+  if(bar){
+    if(hienBar){
+      document.getElementById('syncBarTitle').textContent =
+        '⚠️ ' + fmtSo(cho) + ' phiếu chưa lên server — ĐỪNG TẮT TRÌNH DUYỆT';
+      document.getElementById('syncBarWhy').textContent =
+        'Server không phản hồi từ ' + gioNgan(lucChoLauNhat) +
+        '. Phiếu vẫn được ghi vào Nhật ký trên máy nên không mất, nhưng cần kết nối lại để gửi lên.';
+      bar.classList.add('show');
+    }else{
+      bar.classList.remove('show');
+    }
+  }
+}
+function fmtSo(n){ return Number(n||0).toLocaleString('en-US'); }
+function gioNgan(ms){
+  if(!ms) return '—';
+  const d = new Date(ms);
+  return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+// Gửi lại tất cả: vừa thử lại bản bị từ chối, vừa đẩy phần còn tồn đọng
+function thuGuiLaiTatCa(){
+  if(phieuLoiGui.length) thuGuiLai();
+  if(fsReady) syncNow();
+  veChiBaoDongBo();
 }
 
 const COLLECTIONS = {
@@ -4586,6 +5000,11 @@ let soMucDangGui = 0;        // số bản ghi đang chờ gửi trong lượt n
 let syncInFlight = false;    // đang gửi -> không chồng lệnh
 let syncQueued = false;      // có thay đổi mới trong lúc đang gửi
 let cloudInitRunning = false;
+// V1.12.0 — mốc thời gian cho chỉ báo đồng bộ
+let lucServerPhanHoi = 0;    // lần cuối server thật sự phản hồi (không phải bộ nhớ đệm)
+let lucChoLauNhat = 0;       // lúc bắt đầu có bản ghi chờ xác nhận đầu tiên
+let dongHoLechMs = 0;        // chênh lệch giờ máy so với giờ server
+let dongHoDaBoQua = false;   // người dùng bấm bỏ qua cảnh báo lệch giờ
 
 
 function renderEverything(){
@@ -4647,15 +5066,33 @@ function attachRealtimeListeners(){
       // các lệnh ghi lúc mất mạng. Tự làm thêm sẽ làm sống lại dữ liệu đã xoá.
       // Ghi nhận bản ghi Firebase đã nhận nhưng server chưa xác nhận,
       // để hiện dấu ⏳ cạnh phiếu trong bảng chi tiết.
+      // Gói đến TỪ SERVER (không phải bộ nhớ đệm) => server còn sống.
+      if(qs.metadata && qs.metadata.fromCache === false) lucServerPhanHoi = Date.now();
+
+      // Bản ghi biến mất khỏi server: phân biệt hai trường hợp khác hẳn nhau.
+      //  - Đã từng được server xác nhận => người/máy khác xoá thật => nhật ký ghi 'del'.
+      //  - CHƯA từng được xác nhận mà đã biến mất => server huỷ (rollback, giống
+      //    sự cố App Check 403 sáng 08/08) => GIỮ trong nhật ký để còn gửi lại.
+      try{
+        qs.docChanges().forEach(ch=>{
+          if(ch.type !== 'removed') return;
+          const rid = ch.doc.id;
+          if(idsChoXacNhan.has(rid) || phieuLoiGui.some(x=>x.id===rid)) nkDanhDauHuy(name, rid);
+          else nkXoa(name, rid);
+        });
+      }catch(e){ console.warn('Không đọc được docChanges', e); }
+
       qs.docs.forEach(d=>{
         if(d.metadata && d.metadata.hasPendingWrites) idsChoXacNhan.add(d.id);
-        else idsChoXacNhan.delete(d.id);
+        else { idsChoXacNhan.delete(d.id); nkXacNhan(name, d.id); }
       });
+      if(!idsChoXacNhan.size) lucChoLauNhat = 0;
       const docs = qs.docs.map(d=>d.data());
       COLLECTION_SETTERS[name](docs);
       luuKhoLenMay(name, docs);
       lastSynced[name] = deepCopy(docs);
       if(name==='staffUsers'){ finalizeUserGate(); applyCurrentUserPermissions(); }
+      veChiBaoDongBo();
       renderSoon();
     }, err=>{
       console.error("Lỗi lắng nghe realtime", name, err);
@@ -4729,6 +5166,7 @@ async function cloudInit(){
       }
     }
     await firebase.auth().signInAnonymously();
+    kiemTraDongHo(false);   // V1.12.0 — so giờ máy với giờ server (miễn phí, không tốn lượt Firestore)
 
     // Cài đặt chung: 1 tài liệu, rất nhẹ
     const settingsDoc = await fsDb.collection("settings").doc("app").get();
@@ -4833,20 +5271,37 @@ function ghiNhanLoiGui(name, id, doc, err){
   renderSoon();
 }
 function ghiNgay(name, doc){
+  // Nhật ký trên máy ghi TRƯỚC và ghi cả khi Firebase chưa sẵn sàng —
+  // đây là bản sao độc lập, không phụ thuộc kết nối hay App Check.
+  nkGhi(name, doc);
   if(!fsReady || !fsDb || !doc || !doc.id) return;
   idsChoXacNhan.add(doc.id);
+  if(!lucChoLauNhat) lucChoLauNhat = Date.now();
   try{
     fsDb.collection(name).doc(String(doc.id)).set(doc)
-      .then(()=>{ idsChoXacNhan.delete(doc.id); renderSoon(); })
+      .then(()=>{
+        idsChoXacNhan.delete(doc.id);
+        nkXacNhan(name, doc.id);
+        lucServerPhanHoi = Date.now();
+        if(!idsChoXacNhan.size) lucChoLauNhat = 0;
+        veChiBaoDongBo(); renderSoon();
+      })
       .catch(err=>ghiNhanLoiGui(name, doc.id, doc, err));
   }catch(e){ ghiNhanLoiGui(name, doc.id, doc, e); }
 }
 function xoaNgay(name, id){
+  nkXoa(name, id);
   if(!fsReady || !fsDb || !id) return;
   idsChoXacNhan.add(id);
+  if(!lucChoLauNhat) lucChoLauNhat = Date.now();
   try{
     fsDb.collection(name).doc(String(id)).delete()
-      .then(()=>{ idsChoXacNhan.delete(id); renderSoon(); })
+      .then(()=>{
+        idsChoXacNhan.delete(id);
+        lucServerPhanHoi = Date.now();
+        if(!idsChoXacNhan.size) lucChoLauNhat = 0;
+        veChiBaoDongBo(); renderSoon();
+      })
       .catch(err=>ghiNhanLoiGui(name, id, null, err));
   }catch(e){ ghiNhanLoiGui(name, id, null, e); }
 }
@@ -4940,6 +5395,231 @@ async function syncNow(){
   }
 }
 
+/* ==========================================================================
+   V1.12.0 — E. KIỂM TRA ĐỒNG HỒ MÁY
+   --------------------------------------------------------------------------
+   Giờ máy sai là nghi vấn hàng đầu gây App Check từ chối (403) sáng 08/08.
+   Lấy giờ server MIỄN PHÍ từ giấy thông hành Firebase Auth (issuedAtTime),
+   không tốn lượt đọc/ghi Firestore nào.
+   ========================================================================== */
+async function kiemTraDongHo(nguoiDungBam){
+  try{
+    const u = firebase.auth().currentUser;
+    if(!u) return;
+    const truoc = Date.now();
+    const r = await u.getIdTokenResult(true);
+    const sau = Date.now();
+    const gioServer = new Date(r.issuedAtTime).getTime();
+    if(!isFinite(gioServer)) return;
+    // Trừ bớt thời gian đi đường: lấy điểm giữa của lượt gọi làm mốc máy
+    const gioMay = truoc + (sau - truoc)/2;
+    dongHoLechMs = gioMay - gioServer;
+
+    const nguong = (Number(appOptions.nguongLechPhut) || 5) * 60000;
+    const lech = Math.abs(dongHoLechMs);
+    if(lech >= nguong && !dongHoDaBoQua){
+      veManChanDongHo(gioMay, gioServer);
+    }else{
+      anManChanDongHo();
+      if(lech >= 60000) console.warn('Đồng hồ máy lệch ' + Math.round(lech/1000) + ' giây so với server');
+      if(nguoiDungBam) alert('✅ Đồng hồ đã đúng giờ (lệch ' + Math.round(lech/1000) + ' giây).');
+    }
+  }catch(e){
+    console.warn('Không kiểm tra được đồng hồ:', (e && (e.code||e.message)) || e);
+  }
+}
+function veManChanDongHo(gioMay, gioServer){
+  const box = document.getElementById('clockBlock');
+  if(!box) return;
+  const f = t=>{
+    const d = new Date(t);
+    return d.toLocaleDateString('vi-VN') + '  ' +
+           String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+  };
+  const lechPhut = Math.round(Math.abs(gioMay - gioServer)/60000);
+  document.getElementById('clockLocal').textContent  = f(gioMay);
+  document.getElementById('clockServer').textContent = f(gioServer);
+  document.getElementById('clockDiff').textContent   =
+    (gioMay > gioServer ? 'Máy đang NHANH hơn ' : 'Máy đang CHẬM hơn ') + lechPhut + ' phút';
+  box.classList.add('show');
+}
+function anManChanDongHo(){
+  const box = document.getElementById('clockBlock');
+  if(box) box.classList.remove('show');
+}
+function boQuaDongHo(){
+  dongHoDaBoQua = true;
+  anManChanDongHo();
+  try{ logActivity('Bỏ qua cảnh báo lệch giờ', 'Lệch ' + Math.round(dongHoLechMs/60000) + ' phút'); }catch(e){}
+}
+
+/* ==========================================================================
+   V1.12.0 — GIAO DIỆN NHẬT KÝ & ĐỐI CHIẾU (Cài đặt → Dữ liệu)
+   ========================================================================== */
+function nkVeThongKe(){
+  const wrap = document.getElementById('nkThongKeWrap');
+  if(!wrap) return;
+  wrap.textContent = 'Đang đọc nhật ký…';
+  nkThongKe().then(tk=>{
+    if(!tk){ wrap.innerHTML = '<span style="color:var(--rust);">Không mở được nhật ký trên máy này (trình duyệt chặn IndexedDB).</span>'; return; }
+    const ngay = Object.keys(tk.theoNgay).sort().reverse().slice(0,7);
+    const hk = todayKey();
+    let html = '<table class="nk-table"><tr><th>Ngày</th><th class="r">Phiếu trong nhật ký</th></tr>';
+    if(!ngay.length) html += '<tr><td colspan="2">Chưa có bản ghi nào.</td></tr>';
+    ngay.forEach(d=>{
+      const nhan = d===hk ? ' (hôm nay)' : '';
+      html += '<tr><td>' + ngayVN(d) + nhan + '</td><td class="r">' + fmtSo(tk.theoNgay[d]) + '</td></tr>';
+    });
+    html += '<tr><td><b>Tổng đang giữ</b></td><td class="r"><b>' + fmtSo(tk.tong) + ' bản · ' + mbGon(tk.bytes) + '</b></td></tr>';
+    html += '</table>';
+    if(tk.soHuy > 0){
+      html += '<div style="margin-top:9px;color:#8E2018;font-weight:700;">⚠️ Có ' + fmtSo(tk.soHuy) +
+              ' bản ghi bị server huỷ — dùng mục Đối chiếu bên dưới để gửi lại.</div>';
+    }
+    html += '<div class="muted" style="font-size:11.5px;margin-top:8px;">Tự động xoá bản cũ hơn ' +
+            (Number(appOptions.nkGiuNgay)||30) + ' ngày. Kho này không dùng localStorage nên không vướng trần 5 MB.</div>';
+    wrap.innerHTML = html;
+  });
+}
+function mbGon(bytes){
+  const b = Number(bytes)||0;
+  if(b < 1024) return b + ' B';
+  if(b < 1024*1024) return (b/1024).toFixed(0) + ' KB';
+  return (b/1024/1024).toFixed(1) + ' MB';
+}
+function ngayVN(dateKey){
+  if(!dateKey) return '—';
+  const [y,m,d] = String(dateKey).split('-');
+  return (d||'') + '/' + (m||'') + '/' + (y||'');
+}
+function nkDonCuThuCong(){
+  const n = Number(appOptions.nkGiuNgay) || 30;
+  nkDonCu(n).then(soXoa=>{
+    alert('Đã dọn ' + soXoa + ' bản ghi cũ hơn ' + n + ' ngày khỏi nhật ký.');
+    nkVeThongKe();
+  });
+}
+function luuTuyChonAnToan(){
+  const giu  = Number(document.getElementById('cfgNkGiuNgay').value) || 30;
+  const gy   = Number(document.getElementById('cfgNguongDoGiay').value) || 60;
+  const lech = Number(document.getElementById('cfgNguongLechPhut').value) || 5;
+  appOptions = Object.assign({}, appOptions, {
+    nkGiuNgay: Math.min(365, Math.max(3, giu)),
+    nguongDoGiay: Math.min(600, Math.max(15, gy)),
+    nguongLechPhut: Math.min(120, Math.max(1, lech)),
+  });
+  saveAll();
+  napTuyChonAnToan();
+  veChiBaoDongBo();
+  alert('Đã lưu.');
+}
+function napTuyChonAnToan(){
+  const a = document.getElementById('cfgNkGiuNgay');
+  const b = document.getElementById('cfgNguongDoGiay');
+  const c = document.getElementById('cfgNguongLechPhut');
+  if(a) a.value = Number(appOptions.nkGiuNgay) || 30;
+  if(b) b.value = Number(appOptions.nguongDoGiay) || 60;
+  if(c) c.value = Number(appOptions.nguongLechPhut) || 5;
+  const d = document.getElementById('nkDoiChieuNgay');
+  if(d && !d.value) d.value = todayKey();
+}
+
+// Kết quả đối chiếu gần nhất — để nút "Gửi lại" dùng
+let nkThieuHienTai = [];
+
+function nkDoiChieu(){
+  const wrap = document.getElementById('nkDoiChieuWrap');
+  const dk = (document.getElementById('nkDoiChieuNgay').value) || todayKey();
+  if(!wrap) return;
+  wrap.innerHTML = '<div class="muted" style="font-size:12.5px;">Đang đối chiếu…</div>';
+  nkDocTheoNgay('weighings', dk).then(rows=>{
+    if(!rows.length){
+      wrap.innerHTML = '<div class="muted" style="font-size:12.5px;">Nhật ký không có phiếu nào của ngày ' + ngayVN(dk) + '.</div>';
+      nkThieuHienTai = [];
+      return;
+    }
+    // weighings trong bộ nhớ chính là bản chuẩn đến từ bộ lắng nghe server
+    const coTrenServer = new Set(weighings.map(w=>String(w.id)));
+    const thieu = rows.filter(r=>!coTrenServer.has(String(r.id)));
+    nkThieuHienTai = thieu;
+
+    let html = '<div style="font-size:12.5px;line-height:1.8;">' +
+      'Nhật ký máy: <b>' + fmtSo(rows.length) + '</b> phiếu · Trên server: <b>' + fmtSo(rows.length - thieu.length) + '</b> phiếu';
+    if(thieu.length){
+      const kg = thieu.reduce((a,r)=>a + (Number(r.doc && r.doc.weightKg)||0), 0);
+      html += ' · <span style="color:#8E2018;font-weight:700;">thiếu ' + fmtSo(thieu.length) + ' phiếu — ' + fmtKg(kg) + ' KG</span>';
+    }else{
+      html += ' · <span style="color:#1E6B48;font-weight:700;">khớp hoàn toàn ✓</span>';
+    }
+    html += '</div>';
+
+    if(thieu.length){
+      html += '<table class="nk-table"><tr><th>Giờ</th><th>Nhân viên</th><th>Mã hàng</th><th class="r">KG</th><th>Trên server</th></tr>';
+      thieu.slice(0,200).forEach(r=>{
+        const d = r.doc || {};
+        const emp = employees.find(e=>e.id===d.employeeId);
+        const prod = products.find(x=>x.id===d.productId);
+        html += '<tr class="miss"><td>' + gioNgan(d.createdAt) + '</td>' +
+                '<td>' + ((emp && (emp.code+' · '+emp.name)) || d.employeeCode || '—') + '</td>' +
+                '<td>' + ((prod && prod.code) || '—') + '</td>' +
+                '<td class="r">' + fmtKg(d.weightKg) + '</td>' +
+                '<td><span class="nk-pill no">THIẾU</span></td></tr>';
+      });
+      html += '</table>';
+      if(thieu.length > 200) html += '<div class="muted" style="font-size:11.5px;margin-top:6px;">Chỉ hiện 200 dòng đầu, nút gửi lại vẫn xử lý đủ ' + fmtSo(thieu.length) + ' phiếu.</div>';
+      html += '<div style="background:#FDF1EF;border:1px solid #F0C9C2;border-radius:9px;padding:10px 12px;font-size:12px;line-height:1.6;color:#8E2018;margin-top:10px;">' +
+              '<b>Xem kỹ trước khi gửi lại.</b> Phiếu bị người khác xoá có chủ ý trên máy khác cũng có thể hiện ở đây. Gửi lại sẽ làm phiếu đó sống lại.</div>';
+      html += '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">' +
+              '<button class="btn btn-primary" onclick="nkGuiLaiThieu()">📤 Gửi lại ' + fmtSo(thieu.length) + ' phiếu thiếu</button>' +
+              '<button class="btn btn-outline" onclick="nkLuuRaFile()">💾 Lưu ra file</button></div>';
+    }
+    wrap.innerHTML = html;
+  });
+}
+
+let nkDangGuiLai = false;
+function nkGuiLaiThieu(){
+  if(nkDangGuiLai) return;
+  if(!nkThieuHienTai.length){ alert('Không có phiếu nào thiếu.'); return; }
+  if(!fsReady){ alert('Chưa kết nối được Firebase. Thử lại khi có mạng.'); return; }
+  if(!confirm('Gửi lại ' + nkThieuHienTai.length + ' phiếu lên server?')) return;
+  nkDangGuiLai = true;
+  let n = 0;
+  nkThieuHienTai.forEach(r=>{
+    if(!r.doc || !r.doc.id) return;
+    if(!weighings.some(w=>w.id===r.doc.id)) weighings.unshift(r.doc);
+    ghiNgay('weighings', r.doc);
+    n++;
+  });
+  saveAll();
+  renderSoon();
+  nkDangGuiLai = false;
+  alert('Đã gửi lại ' + n + ' phiếu. Bấm Đối chiếu lần nữa sau vài giây để kiểm tra.');
+  setTimeout(nkDoiChieu, 3000);
+}
+
+// Xuất nhật ký của ngày đang chọn ra file — lớp bảo vệ ngoài trình duyệt
+function nkLuuRaFile(){
+  const el = document.getElementById('nkDoiChieuNgay');
+  const dk = (el && el.value) || todayKey();
+  nkDocTheoNgay('weighings', dk).then(rows=>{
+    if(!rows.length){ alert('Nhật ký không có phiếu nào của ngày ' + ngayVN(dk) + '.'); return; }
+    const noiDung = {
+      ghiLuc: new Date().toISOString(),
+      may: thisDeviceId(),
+      ngay: dk,
+      soPhieu: rows.length,
+      phieu: rows.map(r=>r.doc).filter(Boolean)
+    };
+    const blob = new Blob([JSON.stringify(noiDung, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'nhat-ky-can-' + dk + '.json';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  });
+}
+
 function seedExtraEmployeesOnce(){
   if(localStorage.getItem("cantom_seeded_ct30_v1")) return;
   localStorage.setItem("cantom_seeded_ct30_v1", "1");
@@ -4976,10 +5656,21 @@ setInterval(()=>{
   if(!fsReady){ cloudInit(); return; }
   if(khoGhiLoi.length) cloudSync();   // thử lại kho đang lỗi
 }, 20000);
+// V1.12.0 — chỉ báo đồng bộ tự cập nhật mỗi 5 giây (rẻ, chỉ đọc bộ nhớ trong app)
+setInterval(veChiBaoDongBo, 5000);
+// V1.12.0 — kiểm tra lại đồng hồ mỗi 30 phút, phòng máy trôi giờ giữa ca
+setInterval(()=>{ if(fsReady) kiemTraDongHo(false); }, 30*60*1000);
+// V1.12.0 — dọn nhật ký quá hạn, chạy sau khi app đã lên hình cho đỡ giật
+setTimeout(()=>{
+  nkDonCu(Number(appOptions.nkGiuNgay) || 30).then(n=>{
+    if(n>0) console.log('Nhật ký: đã dọn ' + n + ' bản ghi quá hạn');
+  });
+}, 15000);
 window.addEventListener('online', ()=>{
   if(!fsReady) cloudInit(); else cloudSync();
 });
-window.addEventListener('offline', ()=> updateCloudStatus("error"));
+window.addEventListener('offline', ()=> veChiBaoDongBo());
+window.addEventListener('online',  ()=> veChiBaoDongBo());
 measureTopBar();
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(measureTopBar);
 switchTab('weigh');
@@ -4987,6 +5678,7 @@ showSplash();      // khoá app ngay từ giây đầu, tránh vào được r�
 checkUserGate();   // nếu máy đã có sẵn tài khoản thì hiện đăng nhập ngay
 setTimeout(()=>{ if(!splashDone) finalizeUserGate(); }, 10000);  // mạng lỗi thì không kẹt quá 10 giây
 cloudInit();
+veChiBaoDongBo();
 checkPinLock();
 checkBackupReminder();
 
