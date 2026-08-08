@@ -436,7 +436,7 @@
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
       <button onclick="switchUser()">Đổi</button>
-      <span class="ver">V1.12.1</span>
+      <span class="ver">V1.12.2</span>
     </div>
   </div>
   <div class="tabs-row">
@@ -4910,15 +4910,31 @@ function demTonDong(){
   const now = Date.now();
   const nVang = nguongVangMs(), nDo = nguongDoMs();
   let dangBay = 0, vang = 0, do_ = 0;
-  hangDoiGui.forEach(v=>{
+
+  tuoiChoXacNhan.forEach((v, id)=>{
+    const trongHangCho = hangChoMoMang.some(x=>x.id===id);
+    // Lệnh XOÁ không cần cảnh báo: xoá xong là xong, Firestore tự gửi lại nếu rớt mạng.
+    if(v.op === 'del'){
+      if(!idsChoXacNhan.has(id) && !trongHangCho) tuoiChoXacNhan.delete(id);
+      return;
+    }
+    // Bản ghi ĐÃ BỊ XOÁ trong lúc chờ (qua deleteWeighing -> syncNow) thì thôi,
+    // không còn gì để lo. Đây chính là chỗ sinh "báo đỏ ma" ở V1.12.1.
+    if(!conTonTai(v.name, id)){
+      tuoiChoXacNhan.delete(id); idsChoXacNhan.delete(id);
+      return;
+    }
+    // Server đã xác nhận rồi thì gỡ khỏi phép đếm.
+    if(!idsChoXacNhan.has(id) && !trongHangCho){ tuoiChoXacNhan.delete(id); return; }
+
     const tuoi = now - v.luc;
     if(tuoi >= nDo) do_++;
     else if(tuoi >= nVang) vang++;
     else dangBay++;
   });
-  // Bản ghi server đã TỪ CHỐI thẳng thì đỏ ngay, không cần chờ hết giờ
+
   if(phieuLoiGui.length) do_ = Math.max(do_, phieuLoiGui.length);
-  return { dangBay, vang, do_, tonDong: vang + do_ };
+  return { dangBay, vang, do_, tonDong: vang + do_, soCho: tuoiChoXacNhan.size };
 }
 
 function veChiBaoDongBo(){
@@ -4936,10 +4952,10 @@ function veChiBaoDongBo(){
   if(!fsReady){
     // Hiện số giây tăng dần để biết đang chạy hay đã chết, thay vì "Đang kết nối" chung chung
     const giay = lucBatDauNoi ? Math.round((Date.now() - lucBatDauNoi)/1000) : 0;
-    lop = hangDoiGui.size ? 'bad' : 'warn';
+    lop = hangChoMoMang.length ? 'bad' : 'warn';
     chu = '☁️ Đang mở kết nối… (' + giay + 's)';
-    if(hangDoiGui.size) chu += ' · ' + fmtSo(hangDoiGui.size) + ' phiếu chờ gửi';
-    hienBar = hangDoiGui.size > 0 && giay >= 20;
+    if(hangChoMoMang.length) chu += ' · ' + fmtSo(hangChoMoMang.length) + ' phiếu chờ gửi';
+    hienBar = hangChoMoMang.length > 0 && giay >= 20;
   }else if(do_ > 0 || (matMang && tonDong > 0)){
     lop = 'bad';
     chu = '✖ ' + fmtSo(do_ || tonDong) + ' phiếu KHÔNG lên được server';
@@ -4966,7 +4982,7 @@ function veChiBaoDongBo(){
 
   if(bar){
     if(hienBar){
-      const soPhieu = do_ || hangDoiGui.size;
+      const soPhieu = do_ || hangChoMoMang.length;
       document.getElementById('syncBarTitle').textContent =
         '⚠️ ' + fmtSo(soPhieu) + ' phiếu chưa lên server — ĐỪNG TẮT TRÌNH DUYỆT';
       let vi = '';
@@ -4979,7 +4995,7 @@ function veChiBaoDongBo(){
         vi = 'Server không phản hồi cho các phiếu này. ';
       }
       document.getElementById('syncBarWhy').textContent =
-        vi + 'Phiếu vẫn nằm trong Nhật ký trên máy nên không mất. App đang tự gửi lại mỗi 10 giây.';
+        vi + 'Phiếu vẫn nằm trong Nhật ký trên máy nên không mất. Bấm Thử gửi lại, hoặc dùng Cài đặt → Dữ liệu → Đối chiếu.';
       bar.classList.add('show');
     }else{
       bar.classList.remove('show');
@@ -4997,8 +5013,7 @@ function thuGuiLaiTatCa(){
   if(!fsReady){ cloudInit(); }
   phieuLoiGui = [];
   veCanhBaoLoi();
-  hangDoiGui.forEach(v=>{ v.lanGui = 0; });   // ép gửi lại ngay, không chờ 8 giây
-  quetHangDoi();
+  xaHangChoMoMang();
   if(fsReady) syncNow();
   veChiBaoDongBo();
 }
@@ -5043,7 +5058,12 @@ let cloudInitRunning = false;
 // Cân liên tục thì lúc nào cũng có phiếu đang bay lên server — đó là bình thường.
 // Chỉ bản ghi nào QUÁ HẠN mà chưa được xác nhận mới bị tính là có vấn đề.
 let lucServerPhanHoi = 0;    // lần cuối server thật sự phản hồi (không phải bộ nhớ đệm)
-let hangDoiGui = new Map();  // id -> { name, doc, luc, lanGui, id }
+// V1.12.2 — KHÔNG còn hàng đợi tự gửi lại.
+// Firestore đã tự xếp hàng và gửi lại khi mất mạng; viết đè lên nó chính là
+// nguyên nhân làm phiếu ĐÃ XOÁ sống lại ở V1.12.1 (lặp lại lỗi V1.7.1).
+// Chỉ giữ một hàng chờ MỘT LẦN cho các bản ghi bấm lúc chưa mở được kết nối.
+let hangChoMoMang = [];      // [{ name, doc, id }] — xả đúng 1 lần khi fsReady
+let tuoiChoXacNhan = new Map(); // id -> { luc, name, op } — CHỈ để đo, không dùng để gửi
 function nguongVangMs(){ return (Number(appOptions.nguongVangGiay) || 15) * 1000; }
 function nguongDoMs(){   return (Number(appOptions.nguongDoGiay)   || 90) * 1000; }
 let lucBatDauNoi = 0;        // để hiện số giây khi đang mở kết nối
@@ -5131,7 +5151,7 @@ function attachRealtimeListeners(){
         else {
           idsChoXacNhan.delete(d.id);
           nkXacNhan(name, d.id);
-          hangDoiGui.delete(String(d.id));   // server đã xác nhận -> rời hàng đợi
+          tuoiChoXacNhan.delete(String(d.id));   // server đã xác nhận
         }
       });
       const docs = qs.docs.map(d=>d.data());
@@ -5253,7 +5273,7 @@ async function cloudInit(){
     lucBatDauNoi = 0;
     renderEverything();
     attachRealtimeListeners();
-    quetHangDoi();          // đẩy ngay những bản ghi đã bấm lúc chưa kết nối được
+    xaHangChoMoMang();      // xả MỘT LẦN các bản ghi bấm lúc chưa kết nối được
     veChiBaoDongBo();
   }catch(e){
     console.error("Lỗi kết nối Firebase", e);
@@ -5337,67 +5357,91 @@ function ghiNhanLoiGui(name, id, doc, err){
   updateCloudStatus();
   renderSoon();
 }
-/* V1.12.1 — LỖI NẶNG ĐÃ VÁ
-   Bản trước: `if(!fsReady) return;` đặt NGAY ĐẦU ghiNgay. Lúc app còn kẹt ở
-   "Đang kết nối", mỗi lần bấm NHẬP phiếu chỉ nằm trong bộ nhớ rồi thôi —
-   KHÔNG gửi đi và KHÔNG có gì gửi lại về sau. Nay mọi bản ghi đều vào
-   hàng đợi trước; chưa kết nối được thì nằm chờ, kết nối xong tự bay lên. */
+/* V1.12.2 — Gửi MỘT LẦN rồi để Firestore lo, đúng như V1.11.0.
+   V1.12.1 sai ở chỗ tự giữ bản sao và tự gửi lại mỗi 10 giây: phiếu xoá qua
+   đường saveAll -> syncNow (deleteWeighing) không hề báo cho hàng đợi biết,
+   nên vòng quét gửi lại bản cũ và phiếu ĐÃ XOÁ SỐNG LẠI. Đồng thời lệnh ghi
+   bị huỷ ở tầng dưới không bao giờ hồi đáp -> kẹt hàng đợi -> báo đỏ giả. */
+
+// Bản ghi còn tồn tại thật trong bộ nhớ app hay đã bị xoá?
+// Đây là chốt chặn quyết định: đã xoá thì TUYỆT ĐỐI không gửi lại.
+function conTonTai(name, id){
+  const ds = COLLECTIONS[name] ? COLLECTIONS[name]() : null;
+  if(!ds) return true;
+  return ds.some(x => String(x.id) === String(id));
+}
+
 function ghiNgay(name, doc){
   // Nhật ký trên máy ghi TRƯỚC — bản sao độc lập, không phụ thuộc kết nối.
   nkGhi(name, doc);
   if(!doc || !doc.id) return;
-  hangDoiGui.set(String(doc.id), { name, doc, id:String(doc.id), luc:Date.now(), lanGui:0 });
-  idsChoXacNhan.add(doc.id);
-  guiMotBanGhi(String(doc.id));
-  veChiBaoDongBo();
+  const id = String(doc.id);
+  if(!fsReady || !fsDb){
+    // Chưa mở được kết nối: xếp vào hàng chờ, xả đúng một lần khi kết nối xong.
+    hangChoMoMang.push({ name, doc, id });
+    tuoiChoXacNhan.set(id, { luc:Date.now(), name, op:'set' });
+    veChiBaoDongBo();
+    return;
+  }
+  idsChoXacNhan.add(id);
+  if(!tuoiChoXacNhan.has(id)) tuoiChoXacNhan.set(id, { luc:Date.now(), name, op:'set' });
+  try{
+    fsDb.collection(name).doc(id).set(doc)
+      .then(()=>{
+        idsChoXacNhan.delete(id);
+        tuoiChoXacNhan.delete(id);
+        nkXacNhan(name, id);
+        lucServerPhanHoi = Date.now();
+        veChiBaoDongBo(); renderSoon();
+      })
+      .catch(err=>{ tuoiChoXacNhan.delete(id); ghiNhanLoiGui(name, id, doc, err); });
+  }catch(e){ tuoiChoXacNhan.delete(id); ghiNhanLoiGui(name, id, doc, e); }
 }
+
 function xoaNgay(name, id){
   nkXoa(name, id);
   if(!id) return;
-  hangDoiGui.set(String(id), { name, doc:null, id:String(id), luc:Date.now(), lanGui:0 });
-  idsChoXacNhan.add(id);
-  guiMotBanGhi(String(id));
-  veChiBaoDongBo();
-}
-// Gửi (hoặc gửi lại) đúng một bản ghi trong hàng đợi
-function guiMotBanGhi(id){
-  const v = hangDoiGui.get(String(id));
-  if(!v) return;
-  if(!fsReady || !fsDb) return;   // chưa kết nối: vẫn nằm trong hàng đợi, quét lại sau
-  v.lanGui++;
-  const ref = fsDb.collection(v.name).doc(v.id);
-  const xong = ()=>{
-    hangDoiGui.delete(v.id);
-    idsChoXacNhan.delete(v.id);
-    if(v.doc) nkXacNhan(v.name, v.id);
-    lucServerPhanHoi = Date.now();
-    // bản ghi này từng bị từ chối trước đó -> gỡ khỏi danh sách lỗi
-    if(phieuLoiGui.length){
-      phieuLoiGui = phieuLoiGui.filter(x=>String(x.id)!==v.id);
-      veCanhBaoLoi();
-    }
-    veChiBaoDongBo(); renderSoon();
-  };
-  const hong = err=>{
-    // Giữ nguyên trong hàng đợi để vòng quét thử lại; đồng thời ghi nhận lý do.
-    ghiNhanLoiGui(v.name, v.id, v.doc, err);
+  const sid = String(id);
+  // Bản ghi đang nằm chờ mở mạng mà bị xoá luôn -> bỏ khỏi hàng chờ, đừng gửi.
+  hangChoMoMang = hangChoMoMang.filter(x => x.id !== sid);
+  if(!fsReady || !fsDb){
+    hangChoMoMang.push({ name, doc:null, id:sid });
+    tuoiChoXacNhan.set(sid, { luc:Date.now(), name, op:'del' });
     veChiBaoDongBo();
-  };
+    return;
+  }
+  idsChoXacNhan.add(sid);
+  if(!tuoiChoXacNhan.has(sid)) tuoiChoXacNhan.set(sid, { luc:Date.now(), name, op:'del' });
   try{
-    if(v.doc) ref.set(v.doc).then(xong).catch(hong);
-    else ref.delete().then(xong).catch(hong);
-  }catch(e){ hong(e); }
+    fsDb.collection(name).doc(sid).delete()
+      .then(()=>{
+        idsChoXacNhan.delete(sid);
+        tuoiChoXacNhan.delete(sid);
+        lucServerPhanHoi = Date.now();
+        veChiBaoDongBo(); renderSoon();
+      })
+      .catch(err=>{ tuoiChoXacNhan.delete(sid); ghiNhanLoiGui(name, sid, null, err); });
+  }catch(e){ tuoiChoXacNhan.delete(sid); ghiNhanLoiGui(name, sid, null, e); }
 }
-// Vòng quét: đẩy lại mọi bản ghi còn tồn trong hàng đợi.
-// Chạy khi vừa kết nối xong và định kỳ mỗi 10 giây.
-function quetHangDoi(){
-  if(!fsReady || !fsDb || !hangDoiGui.size) return;
-  const now = Date.now();
-  hangDoiGui.forEach(v=>{
-    // bản mới gửi dưới 8 giây thì để yên, tránh gửi trùng vô ích
-    if(v.lanGui > 0 && (now - v.luc) < 8000) return;
-    guiMotBanGhi(v.id);
+
+// Xả hàng chờ ĐÚNG MỘT LẦN khi vừa mở được kết nối.
+// Không có vòng lặp gửi lại — đó là việc của Firestore.
+function xaHangChoMoMang(){
+  if(!fsReady || !fsDb || !hangChoMoMang.length) return;
+  const ds = hangChoMoMang.slice();
+  hangChoMoMang = [];
+  let boQua = 0;
+  ds.forEach(v=>{
+    if(v.doc){
+      // Phiếu đã bị xoá trong lúc chờ -> KHÔNG gửi, tránh làm nó sống lại.
+      if(!conTonTai(v.name, v.id)){ boQua++; tuoiChoXacNhan.delete(v.id); return; }
+      ghiNgay(v.name, v.doc);
+    }else{
+      xoaNgay(v.name, v.id);
+    }
   });
+  if(boQua) console.log('Hàng chờ: bỏ qua ' + boQua + ' bản ghi đã bị xoá trong lúc chờ mở mạng');
+  veChiBaoDongBo();
 }
 
 function cloudSync(){
@@ -5756,10 +5800,10 @@ setInterval(()=>{
 }, 20000);
 // V1.12.1 — chỉ báo tự cập nhật mỗi 3 giây (rẻ, chỉ đọc bộ nhớ trong app)
 setInterval(veChiBaoDongBo, 3000);
-// V1.12.1 — tự gửi lại bản ghi còn tồn trong hàng đợi, 10 giây một lần
+// V1.12.2 — chỉ lo mở lại kết nối. KHÔNG tự gửi lại bản ghi:
+// Firestore đã tự làm việc đó, tự làm thêm sẽ làm phiếu đã xoá sống lại.
 setInterval(()=>{
-  if(!fsReady){ if(!cloudInitRunning) cloudInit(); return; }
-  quetHangDoi();
+  if(!fsReady && !cloudInitRunning) cloudInit();
 }, 10000);
 // V1.12.0 — kiểm tra lại đồng hồ mỗi 30 phút, phòng máy trôi giờ giữa ca
 setInterval(()=>{ if(fsReady) kiemTraDongHo(false); }, 30*60*1000);
