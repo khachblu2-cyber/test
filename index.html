@@ -400,7 +400,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">V1.11.2</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">V1.11.4</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -853,6 +853,16 @@
         </div>
         <button class="btn btn-primary btn-block" onclick="quetNhanVienChuaDung()">🔍 Quét tìm nhân viên chưa dùng</button>
         <div id="donNvWrap" style="margin-top:12px;"></div>
+      </div>
+
+      <div class="card" style="border-color:#C9DDF5;">
+        <div class="card-title" style="color:var(--blue-dk);">📊 Sức chứa dữ liệu</div>
+        <div class="muted" style="font-size:12.5px;line-height:1.7;margin-bottom:10px;">
+          Đo lượng dữ liệu app phải tải về mỗi lần mở. Chỉ đếm từ dữ liệu đã có sẵn trong máy —
+          không gọi server, không tốn lượt đọc Firebase.
+        </div>
+        <div id="sucChuaWrap" style="background:#F7F9FC;border-radius:9px;padding:11px 13px;font-size:12.5px;">Bấm để đo.</div>
+        <button class="btn btn-outline btn-block" style="margin-top:9px;" onclick="doSucChua()">📊 Đo lại</button>
       </div>
 
       <div class="card" style="border-color:#C9DDF5;">
@@ -1487,6 +1497,7 @@ function setConfigSection(s){
     const a = document.getElementById('xuatFileNgay');   if(a && !a.value) a.value = todayKey();
     const b = document.getElementById('doiChieuNgay');   if(b && !b.value) b.value = todayKey();
     veTrangThaiTuLuu();
+    doSucChua();
   }
   document.getElementById('cfgUsersSection').classList.toggle('hidden', s!=='users');
   document.getElementById('cfgLockSection').classList.toggle('hidden', s!=='lock');
@@ -3380,7 +3391,7 @@ function renderWeighTab(){
         </table>
         <div class="dfoot">
           <span class="lbl">Tổng ngày này</span>
-          <span class="val">${formatMoney(tongTien + bonus)}</span>
+          <span class="val">${formatMoney(tronNghin(tongTien + bonus))}</span>
         </div>
         <div style="padding:9px 12px;display:flex;gap:8px;">
           <button class="btn btn-outline" style="flex:1;padding:7px;font-size:12.5px;" onclick="openDaySlip()">📄 Xem phiếu</button>
@@ -3398,9 +3409,18 @@ function renderWeighTab(){
     b.kg += w.weightKg; b.amount += w.amount;
     if(w.createdAt > b.last) b.last = w.createdAt;
   });
+  // V1.11.4 — mỗi người phải hiện TIỀN CÔNG NGÀY (đã cộng cơm và làm tròn nghìn),
+  // đúng bằng con số màn hình Chi tiền và Công nợ dùng. Trước đây hiện tiền cân
+  // thô nên phiếu in ra lệch với số thực trả — công nhân đối chiếu là cãi nhau.
+  Object.values(byEmp).forEach(b=>{
+    const com = isOvertimeDay(b.employeeId, dateKey) ? Math.round(b.amount * 0.1) : 0;
+    b.tienCom     = com;
+    b.tienCongNgay = tronNghin(b.amount + com);
+  });
   const list = Object.values(byEmp).sort((a,b)=>b.last-a.last);
   const sumKg = list.reduce((a,b)=>a+b.kg,0);
-  const sumTien = list.reduce((a,b)=>a+b.amount,0);
+  // Cộng các số ĐÃ làm tròn từng người — không cộng thô rồi mới làm tròn
+  const sumTien = list.reduce((a,b)=>a+b.tienCongNgay,0);
 
   if(list.length===0){
     wrap.innerHTML = `
@@ -3426,7 +3446,7 @@ function renderWeighTab(){
               <td class="sz">${em?escapeHtml(em.name):'(đã xoá)'}
                 <span class="muted font-mono" style="font-size:10.5px;font-weight:400;">${em?escapeHtml(em.code):''}</span></td>
               <td class="r kg">${fmtKg(b.kg)}</td>
-              <td class="r mn">${formatNumber(b.amount)}</td>
+              <td class="r mn">${formatNumber(b.tienCongNgay)}</td>
             </tr>`;
           }).join('')}
           <tr class="tot"><td>CỘNG</td><td class="r kg">${fmtKg(sumKg)}</td><td class="r mn">${formatNumber(sumTien)}</td></tr>
@@ -3453,7 +3473,8 @@ function openDaySlip(){
   const tongKg   = rows.reduce((a,r)=>a+r.kg,0);
   const tongTien = rows.reduce((a,r)=>a+r.amount,0);
   const bonus    = mealBonusForDay(selectedEmployeeId, dateKey);
-  const tongCong = tongTien + bonus;
+  // V1.11.4 — làm tròn nghìn để phiếu in KHỚP với số thực trả ở màn hình Chi tiền
+  const tongCong = tronNghin(tongTien + bonus);
 
   const now = new Date();
   const pad = v => String(v).padStart(2,'0');
@@ -5072,6 +5093,111 @@ function demPhieuKet(){
   // Phiếu server TỪ CHỐI thẳng thì tính luôn, không cần chờ hết giờ
   const tuChoi = phieuLoiGui.length;
   return { n: Math.max(n, tuChoi), somNhat, tuChoi };
+}
+
+/* ==========================================================================
+   V1.11.3 — GIAI ĐOẠN 0: ĐO SỨC CHỨA DỮ LIỆU
+   Chỉ đọc dữ liệu đã có trong bộ nhớ app. Không gọi server, không tốn lượt đọc.
+   Lấy mẫu 200 bản ghi để ước lượng cỡ trung bình thay vì dựng chuỗi cả kho —
+   dựng cả kho chính là thứ sẽ làm nút Sao lưu hỏng.
+   ========================================================================== */
+const NGUONG_KHO_MB = 60;   // quanh mức này nút Sao lưu bắt đầu hỏng
+
+function coMauTrungBinh(ds){
+  if(!ds || !ds.length) return 0;
+  const n = Math.min(200, ds.length);
+  const buoc = Math.max(1, Math.floor(ds.length / n));
+  let tong = 0, dem = 0;
+  for(let i = 0; i < ds.length && dem < n; i += buoc){
+    try{ tong += JSON.stringify(ds[i]).length; dem++; }catch(e){}
+  }
+  return dem ? (tong / dem) : 0;
+}
+
+function mbGon(bytes){
+  const b = Number(bytes) || 0;
+  if(b < 1024) return b.toFixed(0) + ' B';
+  if(b < 1024*1024) return (b/1024).toFixed(0) + ' KB';
+  return (b/1024/1024).toFixed(1) + ' MB';
+}
+
+function doSucChua(){
+  const wrap = document.getElementById('sucChuaWrap');
+  if(!wrap) return;
+
+  const khos = [
+    ['Phiếu cân',    weighings],
+    ['Nhân viên',    employees],
+    ['Mã hàng',      products],
+    ['Phiếu chi',    payments],
+    ['Số dư đầu kỳ', openingBalances],
+    ['Ngày tăng ca', overtimeDays],
+  ];
+  let tongBytes = 0;
+  const dong = khos.map(([ten, ds])=>{
+    const co = coMauTrungBinh(ds);
+    const bytes = co * (ds ? ds.length : 0);
+    tongBytes += bytes;
+    return { ten, so: ds ? ds.length : 0, bytes };
+  });
+
+  // Tăng trưởng: lấy trung bình số phiếu mỗi ngày trong 7 ngày gần nhất CÓ dữ liệu
+  const theoNgay = {};
+  for(let i=0;i<weighings.length;i++){
+    const dk = weighings[i].dateKey;
+    if(dk) theoNgay[dk] = (theoNgay[dk] || 0) + 1;
+  }
+  const ngayCo = Object.keys(theoNgay).sort().reverse();
+  const bay = ngayCo.slice(0, 7);
+  const tbNgay = bay.length ? Math.round(bay.reduce((a,d)=>a + theoNgay[d], 0) / bay.length) : 0;
+  const coPhieu = coMauTrungBinh(weighings);
+  const bytesMoiNgay = tbNgay * coPhieu;
+
+  // Còn bao lâu tới ngưỡng khó
+  const conLai = (NGUONG_KHO_MB * 1024 * 1024) - tongBytes;
+  let duBao;
+  if(bytesMoiNgay <= 0){
+    duBao = 'chưa đủ dữ liệu để ước tính';
+  }else if(conLai <= 0){
+    duBao = 'ĐÃ VƯỢT ngưỡng — nên làm ngay';
+  }else{
+    const ngay = Math.round(conLai / bytesMoiNgay);
+    duBao = ngay >= 60 ? ('khoảng ' + Math.round(ngay/30) + ' tháng nữa')
+                       : ('khoảng ' + ngay + ' ngày nữa');
+  }
+
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">';
+  h += '<tr><th style="background:var(--blue);color:#fff;padding:5px 6px;text-align:left;font-size:11.5px;">Kho</th>' +
+       '<th style="background:var(--blue);color:#fff;padding:5px 6px;text-align:right;font-size:11.5px;">Bản ghi</th>' +
+       '<th style="background:var(--blue);color:#fff;padding:5px 6px;text-align:right;font-size:11.5px;">Dung lượng</th></tr>';
+  dong.forEach(d=>{
+    const dam = (d.ten === 'Phiếu cân') ? 'font-weight:700;' : '';
+    h += '<tr><td style="border:1px solid var(--line);padding:5px 6px;' + dam + '">' + d.ten + '</td>' +
+         '<td style="border:1px solid var(--line);padding:5px 6px;text-align:right;' + dam + '">' + d.so.toLocaleString('en-US') + '</td>' +
+         '<td style="border:1px solid var(--line);padding:5px 6px;text-align:right;' + dam + '">' + mbGon(d.bytes) + '</td></tr>';
+  });
+  h += '<tr style="background:#EDF3FA;"><td style="border:1px solid var(--line);padding:5px 6px;"><b>Tổng phải tải mỗi lần mở app</b></td>' +
+       '<td style="border:1px solid var(--line);padding:5px 6px;"></td>' +
+       '<td style="border:1px solid var(--line);padding:5px 6px;text-align:right;"><b>' + mbGon(tongBytes) + '</b></td></tr>';
+  h += '</table>';
+
+  h += '<div style="margin-top:10px;line-height:1.9;">' +
+       'Trung bình <b>' + tbNgay.toLocaleString('en-US') + ' phiếu/ngày</b> · tăng thêm <b>' + mbGon(bytesMoiNgay) + ' mỗi ngày</b><br>' +
+       'Cỡ trung bình 1 phiếu: <b>' + Math.round(coPhieu) + ' byte</b>' +
+       '</div>';
+
+  const vuot = conLai <= 0;
+  const gan  = !vuot && bytesMoiNgay > 0 && (conLai / bytesMoiNgay) < 60;
+  const mau  = vuot ? '#FDECEA' : (gan ? '#FFF8E8' : '#E9F7EF');
+  const vien = vuot ? '#F0C9C2' : (gan ? '#F0DCB0' : '#B7E3C9');
+  const chu  = vuot ? '#8E2018' : (gan ? '#7A5A12' : '#1E6B48');
+  h += '<div style="background:' + mau + ';border:1px solid ' + vien + ';border-radius:8px;padding:10px 12px;margin-top:10px;color:' + chu + ';font-weight:700;font-size:12.5px;">' +
+       'Dự kiến chạm ngưỡng khó (' + NGUONG_KHO_MB + ' MB): ' + duBao + '</div>';
+  h += '<div class="muted" style="font-size:11.5px;margin-top:7px;line-height:1.6;">' +
+       'Quanh ngưỡng này nút Sao lưu bắt đầu hỏng vì phải dựng một chuỗi rất lớn trong bộ nhớ trình duyệt, ' +
+       'và iPhone sẽ chậm dần rồi tự tải lại tab.</div>';
+
+  wrap.innerHTML = h;
 }
 
 function doiChieuTay(){
