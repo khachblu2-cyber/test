@@ -348,6 +348,14 @@
                  paySection nằm bên trong nó cũng ẩn -> TRẮNG MÀN HÌNH
            BÀI HỌC: đếm div toàn file KHÔNG ĐỦ. Phải đếm theo TỪNG KHỐI
            (từng div id=...) mới phát hiện được lỗi bù trừ kiểu này.
+           (md5 48c8334df604e5ffa5b4dd9120ecc55c)
+  V1.12.0  THU NHỎ BILL PHIẾU CHI ĐỂ TIẾT KIỆM GIẤY.
+           Chiều cao phiếu 171mm -> 99mm, TIẾT KIỆM 42% giấy in nhiệt.
+           Chữ nhỏ lại ~25%, line-height 1.35->1.2, padding ô bảng 1.3mm->0.6mm,
+           khoảng trắng dưới "Ký nhận" 9mm->5mm, padding trang 4mm->1.5mm.
+           RIÊNG số tiền dòng TỔNG CỘNG giữ TO 5.0mm (class .b-tong td.b-amt),
+           nhãn "TỔNG CỘNG :" để 3.6mm cho khỏi xuống dòng làm cao ô.
+           Chỉ đụng CSS .bill80-page, KHÔNG động logic tính tiền.
 
 ================================================================================
   HẾT PHẦN BÀN GIAO
@@ -706,22 +714,28 @@
   .id-card-line{font-size:2.2mm;color:#555;margin-top:0.8mm;line-height:1.3;}
   #idcard-barcode,#previewBarcode{display:block;width:100%;height:9mm;padding:0 4mm 2mm;flex-shrink:0;}
   /* ===== PHIEU CHI - kieu bill 80mm dat trong trang A4 (giong phan mem cu) ===== */
-  .bill80-page{width:72mm;box-sizing:border-box;padding:2mm 1.5mm 4mm;margin:0;font-family:'Times New Roman',Times,serif;font-size:4.5mm;line-height:1.35;color:#000;background:#fff;}
+  /* V1.12.0 — THU NHỎ ~30% ĐỂ TIẾT KIỆM GIẤY.
+     Chữ nhỏ lại, khoảng cách dòng và ô bảng bó sát hơn, bỏ khoảng trắng thừa.
+     RIÊNG dòng TỔNG CỘNG giữ to (5,2mm) để nổi bật — đây là con số công nhân
+     cần nhìn. Chiều dài phiếu giảm khoảng 35-40%. */
+  .bill80-page{width:72mm;box-sizing:border-box;padding:1.2mm 1.5mm 1.5mm;margin:0;font-family:'Times New Roman',Times,serif;font-size:3.4mm;line-height:1.2;color:#000;background:#fff;}
   .bill80-page .b-center{text-align:center;}
   .bill80-page .b-bold{font-weight:700;}
   .bill80-page .b-r{text-align:right;}
-  .bill80-page .b-co{font-size:5.6mm;font-weight:700;text-align:center;line-height:1.2;}
-  .bill80-page .b-sub{font-size:4.0mm;text-align:center;margin-top:1.6mm;}
-  .bill80-page .b-title{font-size:6.6mm;font-weight:700;text-align:center;margin:2.4mm 0 1.6mm;}
-  .bill80-page .b-info{font-size:4.5mm;margin-bottom:1.1mm;}
-  .bill80-page table.b-tbl{width:100%;border-collapse:collapse;font-size:4.6mm;margin-top:1.2mm;}
-  .bill80-page table.b-tbl th,.bill80-page table.b-tbl td{border:0.3mm solid #000;padding:1.3mm 0.8mm;}
+  .bill80-page .b-co{font-size:4.2mm;font-weight:700;text-align:center;line-height:1.15;}
+  .bill80-page .b-sub{font-size:3.0mm;text-align:center;margin-top:0.5mm;line-height:1.2;}
+  .bill80-page .b-title{font-size:4.6mm;font-weight:700;text-align:center;margin:1.4mm 0 1.0mm;}
+  .bill80-page .b-info{font-size:3.4mm;margin-bottom:0.4mm;}
+  .bill80-page table.b-tbl{width:100%;border-collapse:collapse;font-size:3.4mm;margin-top:0.9mm;}
+  .bill80-page table.b-tbl th,.bill80-page table.b-tbl td{border:0.25mm solid #000;padding:0.6mm 0.6mm;}
   .bill80-page table.b-tbl th{font-weight:700;text-align:center;}
-  .bill80-page table.b-tbl td.b-stt{text-align:center;width:7mm;}
+  .bill80-page table.b-tbl td.b-stt{text-align:center;width:6mm;}
   .bill80-page table.b-tbl td.b-date{text-align:center;}
   .bill80-page table.b-tbl td.b-amt{text-align:right;}
-  .bill80-page .b-words{font-size:4.5mm;margin-top:1.6mm;}
-  .bill80-page .b-sign{text-align:center;font-size:4.5mm;margin-top:9mm;}
+  .bill80-page table.b-tbl tr.b-tong td{font-weight:700;padding:0.8mm 0.6mm;font-size:3.6mm;}
+  .bill80-page table.b-tbl tr.b-tong td.b-amt{font-size:5.0mm;}
+  .bill80-page .b-words{font-size:3.2mm;margin-top:0.9mm;line-height:1.25;}
+  .bill80-page .b-sign{text-align:center;font-size:3.4mm;margin-top:5mm;}
   .receipt-page{background:#fff;padding:20px;border:1px solid #ccc;border-radius:8px;margin-bottom:16px;font-family:'Inter',sans-serif;}
   .receipt-header{text-align:center;margin-bottom:14px;border-bottom:2px solid var(--ink);padding-bottom:10px;}
   .receipt-header h2{margin:0;font-size:18px;}
@@ -755,7 +769,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">V1.11.9</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">V1.12.0</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -4394,11 +4408,11 @@ function printBill80(emp, type, amount, checkedDays, laInLai){
       <div class="b-info">Tên : ${escapeHtml(emp.name||'')}</div>
       <div class="b-info">Ngày : ${now.toLocaleDateString('vi-VN')}</div>
       <div class="b-info">Ngày in: ${printStamp}</div>
-      ${laInLai ? '<div class="b-center b-bold" style="margin:1.4mm 0;border:0.4mm solid #000;padding:1mm;">*** IN LẠI ***</div>' : ''}
+      ${laInLai ? '<div class="b-center b-bold" style="margin:0.8mm 0;border:0.3mm solid #000;padding:0.6mm;font-size:3.4mm;">*** IN LẠI ***</div>' : ''}
       <table class="b-tbl">
-        <tr><th style="width:9mm;">STT</th><th>Ngày tháng</th><th>Số tiền</th></tr>
+        <tr><th style="width:6mm;">STT</th><th>Ngày tháng</th><th>Số tiền</th></tr>
         ${rows}
-        <tr>
+        <tr class="b-tong">
           <td colspan="2" class="b-center b-bold">TỔNG CỘNG :</td>
           <td class="b-amt b-bold">${formatNumber(amount)}</td>
         </tr>
