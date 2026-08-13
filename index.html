@@ -1,3 +1,358 @@
+<!--
+================================================================================
+  BÀN GIAO — APP CÂN TÔM (Tính tiền công nhật)
+  Phiên bản: V1.11.8    Cập nhật: 13/08/2026
+--------------------------------------------------------------------------------
+  TÀI LIỆU NÀY NẰM NGAY TRONG FILE, KHÔNG BAO GIỜ LỆCH VỚI CODE.
+  Mỗi lần sửa file BẮT BUỘC cập nhật luôn phần này (số phiên bản + dòng
+  lịch sử + md5 mới). Muốn tiếp tục công việc ở nơi khác: chỉ cần đưa
+  nguyên file này, không cần thêm tài liệu nào.
+================================================================================
+
+■ 1. BỐI CẢNH
+  Công ty thuỷ sản tại Cà Mau / Bạc Liêu. App tính tiền công nhật cho công
+  nhân cân tôm.
+  Quy mô thực tế (13/08/2026):
+    - 35.889 phiếu cân trong kho, tăng ~2.500-2.700 phiếu MỖI NGÀY
+    - 2.522 nhân viên · 281 mã hàng · ~200-226 người làm mỗi ngày
+    - 3 máy Windows cân đồng thời tại xưởng + iPhone của chủ theo dõi
+  Ngôn ngữ: tiếng Việt toàn bộ (giao diện, chú thích code, trao đổi).
+
+■ 2. HẠ TẦNG
+  File single-file HTML, tên Can-tom-tinh-tien-V*.html
+  Hosting GitHub Pages, tài khoản khachblu2-cyber
+    - Bản chạy thật:  khachblu2-cyber.github.io/cantom/   (đổi tên index.html)
+    - Bản thử:        khachblu2-cyber.github.io/test/
+  Firebase project: can-tom-tinh-tien (gói Blaze), region asia-southeast1
+  Thư viện: Firebase 10.13.0 compat, xlsx (SheetJS), JsBarcode
+
+  LƯU Ý: app Sổ Thu Chi của cùng người dùng chạy ở project KHÁC
+  (so-thu-chi-9f0b5). Hai project hoàn toàn tách biệt.
+
+  Firebase config:
+    apiKey: "AIzaSyAb6nA3PBtJTmgEH2YFUtFtdJ8N6qty4do"
+    authDomain: "can-tom-tinh-tien.firebaseapp.com"
+    projectId: "can-tom-tinh-tien"
+    storageBucket: "can-tom-tinh-tien.firebasestorage.app"
+    messagingSenderId: "588993717848"
+    appId: "1:588993717848:web:d8ea39af3d940d53950c2d"
+
+  App Check: reCAPTCHA Enterprise, site key 6LexjnMtAAAAAGDjVlIge-xnBmOFRUqIxEap6hxl
+    >>> ĐANG UNENFORCE. KHÔNG BẬT LẠI. <<<
+    Đo ngày 13/08: chỉ 76% yêu cầu hợp lệ, 23% KHÔNG hợp lệ (37K/162K trong
+    7 ngày). Hôm 08/08 chỉ 13% mà bật cưỡng chế đã mất phiếu cân cả buổi sáng.
+    Điểm sáng: "unknown origin requests = 0" -> chưa có ai gọi từ trang lạ.
+    Nghĩa là bật App Check cũng không chặn được gì, chỉ chuốc rủi ro.
+
+  Sao lưu Firebase (bật 12/08/2026):
+    - PITR (Point-in-time recovery): 7 ngày, khôi phục tới từng phút
+    - Scheduled backups: Daily giữ 7 ngày · Weekly (Monday) giữ 98 ngày
+    - Chi phí ~2.500đ/tháng
+    - Đường vào: Firestore Database -> tab "Disaster Recovery" (không còn
+      tên "Backups" như tài liệu cũ)
+
+■ 3. QUY TẮC LÀM VIỆC BẮT BUỘC
+  1. Luôn hỏi xác nhận trước khi sửa file. Nêu rõ sẽ đổi gì.
+  2. Tăng số phiên bản mỗi lần sửa (ghi ở class="ver-badge").
+  3. Tên file tải về kèm số phiên bản: Can-tom-tinh-tien-V1.11.8.html
+  4. Chỉ sửa đúng file được nêu tên.
+  5. Đổi giao diện thì làm mockup ảnh trước, cho xem rồi mới sửa code.
+     Ảnh xuất JPEG nhẹ (~30-60 KB), KHÔNG xuất PNG (điện thoại không mở nổi).
+  6. Quy trình /test/ trước, /cantom/ sau.
+  7. Báo lỗi thẳng thắn, thừa nhận sai và nêu nguyên nhân gốc trước khi vá.
+  8. CẬP NHẬT PHẦN BÀN GIAO NÀY mỗi lần sửa file.
+
+  Kiểm tra bắt buộc trước khi giao file:
+    - Trích script bằng regex, chạy `node --check`
+    - Đối chiếu onclick với hàm đã định nghĩa
+    - Đối chiếu getElementById với id có trong HTML (kể cả id tạo bằng JS)
+    - Đếm cân bằng thẻ <div> / </div>
+    - Chạy thử logic trong Node với dữ liệu giả
+    - Ghi md5 khi giao file
+
+■ 4. KIẾN TRÚC ĐỒNG BỘ — KHÔNG ĐƯỢC VI PHẠM
+  (a) Bộ lắng nghe THAY THẲNG, không tự ghép dữ liệu:
+        const docs = qs.docs.map(d=>d.data());
+        COLLECTION_SETTERS[name](docs);
+      Firestore đã tự gộp sẵn bản ghi máy vừa ghi mà chưa lên server.
+
+  (b) KHÔNG tự viết vòng lặp gửi lại. Firestore đã làm sẵn.
+      Đã mắc lỗi này 4 lần: V1.4.0-1.5.x (ghép dữ liệu), V1.7.0 (cứu phiếu),
+      V1.12.1 (hàng đợi tự gửi lại -> phiếu ĐÃ XOÁ SỐNG LẠI).
+
+  (c) ghiNgay/xoaNgay gửi NGAY từng bản ghi, không chờ gom 900ms.
+      Danh mục/cài đặt vẫn gom 900ms qua cloudSync -> syncNow.
+
+  (d) syncNow gửi TỪNG KHO một lô riêng. Firestore huỷ trọn lô nếu một bản
+      ghi bị từ chối -> gộp chung sẽ khiến 1 bản ghi hỏng chặn hết phiếu cân.
+
+  (e) MỌI lệnh await chờ server PHẢI có đồng hồ đếm ngược (gioiHanThoiGian).
+      Quá hạn = THÔI ĐỨNG CHỜ, KHÔNG PHẢI LÀ HỎNG. Việc vẫn chạy tiếp ở nền.
+      Đây là bài học đắt nhất của V1.11.x — xem mục 8.
+
+  Các kho đồng bộ (7): employees, products, weighings, openingBalances,
+                        payments, overtimeDays, staffUsers
+  KHÔNG đồng bộ (chỉ lưu từng máy): activityLog, devices
+
+■ 5. QUY TẮC TÍNH TIỀN — MỘT CON SỐ DUY NHẤT
+      tienCongNgay(employeeId, dateKey) = tronNghin(tiềnCân + tiềnCơm)
+      tronNghin(v) = Math.round(v/1000)*1000
+      tiềnCơm = Math.round(tiềnCân * 0.1), CHỈ khi ngày đó đánh dấu tăng ca
+
+  Làm tròn TỪNG NGƯỜI TỪNG NGÀY rồi mới cộng. Không cộng hết rồi mới làm tròn.
+  (Thử với 3 người: cộng sai cách lệch 48.000đ)
+
+  Áp dụng ở: bảng tổng hợp cân theo ngày, màn hình chi tiền, chi tiết theo kỳ,
+  tổng hợp công nợ, số dư công nợ, "Tổng ngày này" ở tab Cân tôm, bảng Cả
+  xưởng, và PHIẾU IN.
+
+  KHÔNG làm tròn ở: từng dòng size, từng phiếu lẻ, dòng CỘNG tiền cân, dòng
+  TIỀN CƠM — đó là thành phần chi tiết, phải giữ số thật.
+
+■ 6. ĐỊNH DẠNG SỐ
+  Mọi số KG dùng fmtKg(). Không bao giờ để lộ 31.599999999999998 hay 3745.00.
+  Tiền dùng formatNumber() / formatMoney().
+
+■ 7. TÍNH NĂNG THÊM Ở DÒNG V1.11.x (quan trọng, đọc kỹ)
+
+  ▸ SỔ MÁY (localStorage riêng, key: cantom_so_may_v1)
+    Vì sao cần: từ V1.6.0 phiếu cân không còn chép vào localStorage (vỡ trần
+    5MB), nên phiếu CHỈ tồn tại trong bộ nhớ đệm Firestore. Khi server TỪ CHỐI,
+    Firestore HUỶ bản ghi chờ và cuộn bộ nhớ đệm về trạng thái server -> F5 là
+    trắng (đúng sự cố 08/08).
+    Sổ máy ghi ~100 byte/phiếu {i,e,p,k,t,d}, gom 2 giây một lần, giữ 3 ngày.
+    3 ngày ~880 KB = 17% trần 5MB. An toàn.
+    Hàm: soMayNap/soMayThem/soMayGhiXuong/soMayLuu/soMayDonCu/soMayXoa
+
+  ▸ ĐỐI CHIẾU
+    doiChieuNhanh() — chỉ so HAI CON SỐ (0,1ms), 99% số lần dừng ở đây
+    doiChieuChiTiet() — chỉ chạy khi lệch, quét ~20ms
+    doiChieuNgam() — tự chạy mỗi 5 phút, KHÔNG gọi server, không tốn lượt đọc
+    doiChieuTay() — nút trong Cài đặt (đầy đủ, có bảng chi tiết)
+    doiChieuNhanhTabCan() — nút ở cuối tab Cân tôm cho người cân (CHỈ XEM,
+      không có nút gửi lại: gửi lại có thể làm sống lại phiếu người khác đã xoá)
+
+  ▸ BA MỨC CẢNH BÁO (V1.11.6-1.11.7)
+    Phân biệt theo NGUYÊN NHÂN, không gộp chung:
+      laServerTuChoi() nhận diện permission-denied / unauthenticated /
+                       resource-exhausted  -> NGUY HIỂM
+      unavailable = chỉ mất mạng -> KHÔNG SAO
+
+    | Tình huống                       | Mức  | Cân được? |
+    | Bình thường                      | 0    | Cân       |
+    | Mất mạng, 5+ phiếu quá 60 giây   | VÀNG | Cân       |
+    | Mất mạng quá 5 phút (CHAN_PHUT)  | ĐỎ   | CHẶN      |
+    | Server từ chối                   | ĐỎ   | CHẶN NGAY |
+
+    Chặn = nút NHẬP mờ (capNhatKhoaNhap) + checkWeighAllowed trả về ok:false.
+    Mạng về là TỰ MỞ LẠI, không cần F5.
+
+    Bảng đỏ ghi hướng dẫn KHÁC NHAU cho hai trường hợp:
+      - Mất mạng: "tải lại app cũng không mất phiếu" (Firestore giữ hàng đợi
+        trên đĩa, F5 xong tự gửi tiếp)
+      - Server từ chối: "BẤM XUẤT EXCEL TRƯỚC KHI TẢI LẠI APP" (Firestore đã
+        huỷ hàng đợi, F5 là mất sạch)
+
+  ▸ MÀN CHỜ KHỞI ĐỘNG (V1.11.6)
+    Tải xong phiếu cân MỚI cho đăng nhập. Trước đây app cho vào ngay khi có
+    danh sách tài khoản -> bấm Sao lưu lúc đó ra file 878 KB thay vì 14,7 MB.
+    Cờ daNhanGoiServer bật khi kho weighings nhận gói fromCache===false.
+    Quá 25 giây (SPLASH_QUA_HAN) thì hiện nút "Vào cân ngay" — KHÔNG BAO GIỜ
+    khoá cứng, cả xưởng không được đứng chờ vì mạng.
+
+  ▸ SAO LƯU
+    Tên file: SLCT_2026-08-12_19h56_35889phieu.json
+    CHẶN xuất khi chưa tải xong (daNhanGoiServer=false).
+    checkBackupReminder cũng chờ tải xong mới nhắc.
+    File đủ ~14,7 MB với 35.889 phiếu. Nếu ra vài trăm KB là THIẾU.
+
+  ▸ XUẤT EXCEL 7 CỘT
+    Mã cân · Thời gian · Mã NV · Nhân viên · Mã hàng · KG · Người cân
+    Máy Windows/Chrome: chọn thư mục 1 lần (chonThuMucLuu) -> tự ghi đè mỗi
+    2 phút. iPhone/Safari không hỗ trợ, phải bấm nút xuất tay.
+
+  ▸ ĐO SỨC CHỨA DỮ LIỆU (Cài đặt -> Dữ liệu)
+    Lấy mẫu 200 bản ghi để ước lượng (2ms, sai số 0,39%), KHÔNG dựng cả chuỗi
+    (272ms — chính là cách làm hỏng nút Sao lưu).
+
+■ 8. LỊCH SỬ LỖI ĐÃ SỬA — ĐỌC ĐỂ KHÔNG TÁI PHẠM
+  V1.5.6  Vòng lặp ghi vô tận 22.000 lượt/ngày — mốc lastSynced liệt kê tay
+  V1.5.9  Ba máy đè dữ liệu — cho gói từ bộ nhớ đệm ghi đè dữ liệu mới hơn
+  V1.7.1  Dữ liệu đã xoá SỐNG LẠI — đoạn "cứu phiếu cân" đẩy dữ liệu cũ lên
+  V1.8.0  Mất phiếu khi 3 máy cân cùng lúc — lỗ hổng 900ms
+  V1.9.2  Không xoá được phiếu mồ côi
+  V1.10.4 Bấm 1 lần ra 2 phiếu (Chrome/Mac) — thêm khoá chống nhập kép 600ms
+
+  --- Dòng V1.11.x/V1.12.x (08-13/08/2026) ---
+  V1.12.0 ĐỒNG HỒ ĐẾM NGƯỢC 8 GIÂY SAI CHỖ. Đo "có phiếu đang chờ không" —
+          mà cân liên tục thì LÚC NÀO CŨNG CÓ -> báo đỏ vĩnh viễn.
+          Bài học: đo "server còn xác nhận không", đừng đo "có phiếu chờ không".
+  V1.12.1 HÀNG ĐỢI TỰ GỬI LẠI 10 GIÂY -> PHIẾU ĐÃ XOÁ SỐNG LẠI.
+          deleteWeighing đi qua saveAll->syncNow, KHÔNG báo cho hàng đợi biết.
+          Lệnh ghi bị huỷ ở tầng dưới không bao giờ hồi đáp -> kẹt -> báo đỏ ma.
+          Bài học: LẶP LẠI ĐÚNG LỖI V1.7.1. Đừng viết đè lên Firestore.
+  V1.12.2 Gỡ bỏ hàng đợi tự gửi lại. Thêm conTonTai() — đã xoá thì TUYỆT ĐỐI
+          không gửi lại.
+  V1.11.1 Vá `if(!fsReady) return;` ở đầu ghiNgay — lúc app kẹt "Đang kết nối",
+          bấm NHẬP là phiếu RƠI VÀO HƯ KHÔNG, không gửi và không gửi lại.
+  V1.11.2 batch.commit() không có đồng hồ -> syncNow đứng mãi, syncInFlight
+          kẹt true VĨNH VIỄN -> mọi lần đồng bộ sau đều bị bỏ qua.
+  V1.11.4 LÀM TRÒN SAI ở 3 chỗ: phiếu in ghi 325.450đ nhưng Công nợ trả
+          325.000đ. Lệch 450đ, công nhân đối chiếu là cãi nhau.
+  V1.11.5 !!! LỖI NẶNG NHẤT DÒNG NÀY !!!
+          Đồng hồ 8 giây ở enablePersistence làm cờ boNhoDemBat SAI.
+          Máy nhiều dữ liệu mở kho đệm lâu hơn 8 giây -> app tưởng bộ nhớ đệm
+          không bật -> quay về chép TOÀN BỘ phiếu vào localStorage -> VỠ TRẦN
+          5MB (đúng lỗi V1.6.0). saveAll đứt giữa chừng, các kho phía sau
+          (phiếu chi, tăng ca, cài đặt) KHÔNG được lưu.
+          Vá: gắn .then() để cờ vẫn bật khi kho đệm mở xong dù muộn + tách
+          kho phiếu ra khỏi khối try chung + chỉ báo lỗi MỘT LẦN.
+          BÀI HỌC: thêm đồng hồ cho một lệnh thì PHẢI RÀ MỌI CỜ TRẠNG THÁI
+          mà lệnh đó đặt ra.
+
+  BÀI HỌC LẶP LẠI NHIỀU LẦN: đừng tự viết lại thứ Firestore đã làm sẵn.
+  Bốn lần mắc cùng lỗi này (merge, cứu phiếu, chặn bộ nhớ đệm, hàng đợi gửi lại).
+
+■ 9. CẤU TRÚC DỮ LIỆU
+  employees:       { id, code, name, address, phone, cccd, birth, active, photo }
+  products:        { id, code, name, unitPrice, color, active, showInWeigh }
+  weighings:       { id, employeeId, productId, weightKg, unitPrice, amount,
+                     createdAt, dateKey, employeeCode, byUserId, byUserName,
+                     deviceId, flags }                    (~288 byte/phiếu)
+  payments:        { id, employeeId, dateKey, type, amount, note, paidDates[],
+                     chiTietNgay[{dateKey,amount}], createdAt, byUserId,
+                     byUserName, deviceId }
+  openingBalances: { id, employeeId, amount, note, createdAt }
+  overtimeDays:    { id, employeeId, dateKey }
+  staffUsers:      { id, code, name, fullName, username, password,
+                     permissions{}, actions{} }
+  activityLog:     { id, at, userId, userName, deviceId, action, detail }  // KHÔNG đồng bộ
+  devices:         { id, deviceId, label, approved, addedAt }              // KHÔNG đồng bộ
+
+  !!! staffUsers.password đang lưu CHỮ THƯỜNG, không mã hoá.
+
+■ 10. VIỆC CÒN TREO — theo thứ tự ưu tiên
+
+  ▸ A. BẢN TỔNG HỢP NGÀY — CÓ HẠN CHÓT, ~3 TUẦN
+    Kho weighings 35.889 phiếu (13/08), tăng ~2.500/ngày.
+    Ngưỡng: iPhone/Safari khựng ở 20.000-30.000 (ĐÃ VƯỢT), máy Windows/Chrome
+    ở 100.000-150.000 -> khoảng đầu tháng 9.
+    Triệu chứng đã xuất hiện: iPhone "upload rất chậm", máy Windows mở kho đệm
+    hơn 8 giây (gây ra lỗi V1.11.5).
+
+    PHÁT HIỆN QUAN TRỌNG: app ĐÃ CÓ SẴN hàm dungBangTraCuu() trả về đúng
+    cấu trúc { employeeId: { dateKey: tiền công ĐÃ làm tròn } } — chính là
+    hình dạng của bản tổng hợp. Không phải nghĩ công thức mới.
+    Chỉ 2 hàm gọi nó: buildDebtReportRows (d.2977) và buildDebtBalanceData
+    (d.3182). Toàn bộ công nợ đi qua đúng hai cửa này.
+
+    Kế hoạch 4 giai đoạn (THỨ TỰ BẮT BUỘC, làm ngược là gãy chức năng lương):
+      GĐ0 Đo (ĐÃ XONG - Cài đặt -> Dữ liệu -> Sức chứa dữ liệu)
+      GĐ1 Kho dailySummary, id = dateKey+'|'+employeeId. Cloud Function chạy
+          THEO LỊCH (không dùng onWrite: 3.000 phiếu/ngày sẽ gọi dồn dập và
+          đụng giới hạn ghi 1 lần/giây/document).
+          TÍNH LẠI TỪ ĐẦU, KHÔNG CỘNG DỒN — Cloud Functions bảo đảm "ít nhất
+          một lần", chạy trùng là cộng đôi.
+          App KHÔNG đọc kho này ở GĐ1, lương vẫn tính từ phiếu gốc.
+      GĐ2 Màn hình đối chiếu TỪNG NGƯỜI (không chỉ tổng). Phải khớp tuyệt đối
+          liên tục >= 7 ngày mới đi tiếp. Lệch 1 đồng cũng dừng.
+      GĐ3 Đổi dungBangTraCuu đọc từ dailySummary. BẮT BUỘC có công tắc trong
+          Cài đặt để gạt về nguồn cũ.
+      GĐ4 Bộ lắng nghe weighings thêm .where('dateKey','>=', 3 ngày trước).
+          NHỚ GỌI HÀM HUỶ listener cũ, không thì rò rỉ và vẫn tính tiền đọc.
+
+  ▸ B. SAO LƯU DRIVE 20H (chờ máy tính)
+    Cloud Function chạy theo lịch, xuất JSON đầy đủ, đẩy lên Google Drive.
+    Cần: Firebase CLI, service account, chia sẻ thư mục Drive cho email của
+    service account. KHÔNG dùng trình duyệt hẹn giờ (20h thường không máy nào bật).
+
+  ▸ C. BẢO MẬT — "BẬC 2": TÀI KHOẢN FIREBASE THẬT
+    Quy tắc hiện tại: allow read, write: if request.auth != null
+    App dùng đăng nhập ẩn danh -> ai cũng tự tạo được auth -> QUY TẮC NÀY
+    KHÔNG CHẶN AI CẢ. Người biết địa chỉ trang là đọc được toàn bộ lương + CCCD.
+    Kế hoạch 3 giai đoạn: (1) đăng nhập song song, (2) chuyển 6 tài khoản,
+    (3) tắt ẩn danh + siết quy tắc (token.email != null) + xoá mật khẩu.
+    Màn hình đăng nhập KHÔNG ĐỔI — vẫn tên+mật khẩu, app tự ghép thành
+    tinh@cantom.local. Không cần tài khoản Google.
+    Sau đó mới làm được: Cloud Function cho thao tác nhạy cảm (xoá hàng loạt,
+    sửa lương, đổi đơn giá) — mô hình MISA thu nhỏ.
+
+  ▸ D. NHIỀU CÔNG TY (chưa gấp, chỉ chuẩn bị)
+    Đã xác định: 3 công ty KHÔNG dùng chung nhân viên, KHÔNG cần xem tổng,
+    cân CÙNG THỜI ĐIỂM.
+    -> Loại bỏ cách gộp chung một Firebase (kho phình gấp 3).
+    -> Nên: MỘT FILE chứa cấu hình cả 3 project, chọn công ty lúc đăng nhập.
+       Dữ liệu vẫn tách hẳn, sửa lỗi chỉ một lần. Ước tính 1-2 ngày.
+    -> Nếu gấp: nhân bản file (1 giờ/công ty), sau gộp lại vẫn được.
+
+  ▸ E. VIỆC NHỎ
+    - Dấu ⏳ không tắt sau khi bật/tắt máy bay (KHÔNG mất dữ liệu, nhập phiếu
+      mới là tự tắt). Đã quyết ĐỂ NGUYÊN, sợ vá lại sinh lỗi khác.
+    - Bật lại đồng bộ activityLog để xem thao tác nhân viên trên máy khác
+    - Dọn nhân viên tên "-" (công cụ đã có ở Cài đặt -> Dữ liệu)
+    - Nối cân điện tử: đã có cáp UNITEK USB<->RS232, cần Windows + Chrome
+      (Web Serial). Safari/Android không hỗ trợ.
+
+■ 11. KIẾN THỨC KỸ THUẬT ĐÃ TÍCH LUỸ
+  - Firestore batch là trọn gói — một bản ghi bị từ chối thì cả lô huỷ
+  - batch.commit() chỉ hồi đáp khi SERVER xác nhận -> phải có đồng hồ
+  - App Check bị từ chối -> Firebase khoá thử lại tới 24 GIỜ. Unenforce rồi
+    vẫn phải F5 để máy khởi động lại
+  - reCAPTCHA admin nay bắt buộc chọn dự án Google Cloud -> mọi khoá mới đều
+    là Enterprise, không tạo được v3 thường
+  - App Check phải activate NGAY SAU firebase.initializeApp(), trước
+    firebase.firestore() và firebase.auth()
+  - iOS xoá TOÀN BỘ IndexedDB/localStorage nếu 7 ngày không mở trang trong
+    Safari. Cách tránh: THÊM APP VÀO MÀN HÌNH CHÍNH (đã làm) +
+    navigator.storage.persist()
+  - Safari iPhone: JSON.stringify an toàn < 15MB, hỏng > 50MB.
+    Chrome máy tính: an toàn < 50MB, hỏng > 200MB
+  - localStorage ghi kiểu đọc-hết-viết-đè-hết -> càng dài càng chậm.
+    IndexedDB ghi thẳng vào cuối, không chậm theo kích thước
+  - confirm()/prompt() bị chặn trong iframe xem trước — dùng xác nhận hai lần
+  - Chrome chặn dán code vào Console lần đầu, phải gõ `allow pasting`
+  - Cloud Functions Gen1 chỉ hỗ trợ Node <= 20; firebase-functions@^4.9.0 +
+    firebase-admin@^12.1.0 cho cú pháp v1
+  - Chi phí Firestore: 0,06 USD / 100.000 lượt đọc. Tải lại toàn bộ kho
+    1,1 triệu phiếu = 0,66 USD/máy
+  - GitHub Pages: nhớ đổi tên file thành index.html, và Ctrl+F5 để không
+    dính bản cũ
+
+■ 12. LỊCH SỬ PHIÊN BẢN DÒNG V1.11.x
+  V1.11.0  Bản gốc ổn định (md5 657a092cd1769e208c21f4e948dfda02)
+  V1.11.1  Đồng hồ đếm ngược cho cloudInit · hàng chờ mở mạng cho ghiNgay ·
+           Sổ máy + đối chiếu · bảng đỏ khi kẹt · tab Cài đặt full màn hình
+  V1.11.2  Đồng hồ 15 giây cho batch.commit (vá syncInFlight kẹt vĩnh viễn) ·
+           dời số phiên bản ra dòng trạng thái · thêm tổng phiếu hôm nay
+  V1.11.3  Ô đo sức chứa dữ liệu (giai đoạn 0)
+  V1.11.4  Vá làm tròn 3 chỗ: Tổng ngày này · bảng Cả xưởng · phiếu in
+           (md5 ac6715f27b4d46b4e46bd9d6855a4cd4)
+  V1.11.5  VÁ LỖI VỠ TRẦN 5MB do cờ boNhoDemBat sai
+           (md5 8ebbb1f2c2b09c4268745a2dc48d8db8)
+  V1.11.6  Màn chờ tải xong mới cho đăng nhập · ba mức cảnh báo · khối kiểm
+           tra ở tab Cân tôm · tên file SLCT_ · chặn sao lưu khi chưa tải xong
+           (md5 b5c9279344c106d6573e2238bbc55bed)
+  V1.11.7  Ngưỡng chặn 2 -> 5 phút · bảng đỏ ghi hướng dẫn khác nhau cho
+           mất mạng và server từ chối
+           (md5 9a17c1d9db56b9c6fca5605b7598a875)
+  V1.11.8  Nhét tài liệu bàn giao vào chính file này. KHÔNG đụng một dòng code.
+           (md5 52df68c9a70c769a2c0b19ca1e890bde)
+  V1.11.9  VÁ LỖI TAB CÔNG NỢ TRẮNG MÀN HÌNH khi bấm "Phiếu chi".
+           Hai lỗi chồng nhau, có sẵn từ V1.11.0, bù trừ nhau nên phép đếm
+           div toàn file vẫn cân bằng và không ai phát hiện:
+             (a) openSection THIẾU 1 thẻ </div> (openBody không được đóng)
+                 -> paySection bị nuốt vào trong openSection
+             (b) paySection THỪA 1 thẻ </div> (bù cho lỗi a)
+             (c) setDebtSection buộc openSection theo mục 'report' thay vì
+                 'pay' -> bấm Phiếu chi thì openSection ẩn, kéo theo cả
+                 paySection nằm bên trong nó cũng ẩn -> TRẮNG MÀN HÌNH
+           BÀI HỌC: đếm div toàn file KHÔNG ĐỦ. Phải đếm theo TỪNG KHỐI
+           (từng div id=...) mới phát hiện được lỗi bù trừ kiểu này.
+
+================================================================================
+  HẾT PHẦN BÀN GIAO
+================================================================================
+-->
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -400,7 +755,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">V1.11.4</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">V1.11.9</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -444,7 +799,7 @@
     <input type="date" id="weighDate" class="f-date" onchange="onWeighDateChange()">
     <button class="btn-form" onclick="openDaySlip()" title="Xem phiếu chi tiết trong ngày">📄 Chi tiết<br>trong ngày</button>
     <input type="number" id="wKgBig" class="f-kg" placeholder="0.0" step="0.1" inputmode="decimal" oninput="updateWeighPricePreview()" onkeydown="if(event.key==='Enter'){event.preventDefault();addWeighing();}">
-    <button class="btn-nhap" onclick="addWeighing()">NHẬP</button>
+    <button class="btn-nhap" id="btnNhap" onclick="addWeighing()">NHẬP</button>
   </div>
   <div id="activeProdBar">
     <span>Đang chọn:</span> <b id="activeProdLabel">— chưa chọn mã hàng —</b>
@@ -479,6 +834,19 @@
       <div id="weighListWrap"></div>
     </div>
   </div>
+
+  <!-- V1.11.6 — KHỐI KIỂM TRA cho người cân (Cài đặt họ không vào được) -->
+  <div class="wrap-full">
+    <div style="border:1px solid var(--line);border-radius:9px;padding:12px 13px;background:#FAFCFF;margin-top:10px;">
+      <div style="font-size:13px;font-weight:700;color:var(--blue-dk);margin-bottom:9px;">🔍 Kiểm tra dữ liệu hôm nay</div>
+      <div style="display:flex;gap:9px;margin-bottom:9px;flex-wrap:wrap;">
+        <button class="btn btn-outline" style="flex:1;min-width:130px;" onclick="doiChieuNhanhTabCan()">🔍 Đối chiếu</button>
+        <button class="btn btn-outline" style="flex:1;min-width:130px;" onclick="xuatFileChiTiet()">📄 Xuất Excel</button>
+      </div>
+      <div id="ktNhanhKetQua" style="font-size:12px;"></div>
+    </div>
+  </div>
+
   <div style="height:30px;"></div>
 </div>
 
@@ -629,6 +997,7 @@
         <div class="card-title">Danh sách số dư đầu kỳ</div>
         <div id="openListWrap"></div>
       </div>
+      </div>
     </div>
 
     <!-- PHIẾU CHI -->
@@ -643,7 +1012,6 @@
       <div class="card">
         <div class="card-title">Bảng kê phiếu chi</div>
         <div id="payListWrap"></div>
-      </div>
       </div>
     </div>
 
@@ -1103,11 +1471,36 @@ function loadJSON(key, fallback){
   try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
   catch(e){ console.error("Lỗi đọc dữ liệu", key, e); return fallback; }
 }
+// V1.11.5 — kho phiếu cân được lưu RIÊNG, có lưới an toàn.
+// Trước đây nó nằm chung khối try: vỡ trần một cái là các kho phía sau
+// (phiếu chi, tăng ca, người dùng, cài đặt) đều không được lưu.
+let ngungLuuPhieuLenMay = false;
+function luuPhieuLenMayNeuCan(){
+  if(boNhoDemBat || ngungLuuPhieuLenMay) return;
+  // Quá nhiều phiếu thì đừng thử — chắc chắn vỡ trần 5 MB
+  if(weighings.length > 4000){
+    ngungLuuPhieuLenMay = true;
+    console.warn('Kho phiếu quá lớn (' + weighings.length + '), không chép lên máy nữa. '
+               + 'Phiếu vẫn an toàn: đã lên Firebase và đã ghi vào Sổ máy.');
+    try{ localStorage.removeItem(WEIGH_KEY); }catch(e){}
+    return;
+  }
+  try{
+    localStorage.setItem(WEIGH_KEY, JSON.stringify(weighings));
+  }catch(e){
+    // Hết chỗ: dừng hẳn, dọn bản cũ để nhường chỗ cho Sổ máy. KHÔNG báo động,
+    // vì phiếu đã lên Firebase và đã nằm trong Sổ máy.
+    ngungLuuPhieuLenMay = true;
+    try{ localStorage.removeItem(WEIGH_KEY); }catch(e2){}
+    console.warn('localStorage hết chỗ cho kho phiếu — đã dừng chép và dọn bản cũ.');
+  }
+}
+
 function saveAll(){
+  luuPhieuLenMayNeuCan();
   try{
     localStorage.setItem(EMP_KEY, JSON.stringify(employees));
     localStorage.setItem(PROD_KEY, JSON.stringify(products));
-    if(!boNhoDemBat) localStorage.setItem(WEIGH_KEY, JSON.stringify(weighings));
     localStorage.setItem(OPEN_KEY, JSON.stringify(openingBalances));
     localStorage.setItem(PAY_KEY, JSON.stringify(payments));
     localStorage.setItem(OVERTIME_KEY, JSON.stringify(overtimeDays));
@@ -1115,9 +1508,18 @@ function saveAll(){
     localStorage.setItem('cantom_devices', JSON.stringify(devices));
     localStorage.setItem(COMPANY_KEY, JSON.stringify(companyInfo));
     localStorage.setItem(OPTIONS_KEY, JSON.stringify(appOptions));
-  }catch(e){ alert("Không lưu được dữ liệu trên máy: " + e.message); }
+  }catch(e){
+    // Chỉ báo MỘT LẦN, tránh hiện hộp thoại mỗi lần bấm NHẬP
+    console.error('Không lưu được dữ liệu trên máy:', e && e.message);
+    if(!daBaoLoiLuu){
+      daBaoLoiLuu = true;
+      alert("Máy hết chỗ lưu cục bộ. Phiếu cân VẪN AN TOÀN (đã lên Firebase và Sổ máy). "
+          + "Vào Cài đặt → Dữ liệu → Đối chiếu để kiểm tra.");
+    }
+  }
   cloudSync();
 }
+let daBaoLoiLuu = false;
 
 function formatNumber(n){ return (Number(n)||0).toLocaleString("en-US"); }
 // Định dạng số KG: làm tròn theo Cài đặt, có dấu phẩy phân nhóm nghìn,
@@ -1132,7 +1534,7 @@ function formatMoney(n){ return formatNumber(n) + " đ"; }
 
 let employees = loadJSON(EMP_KEY, []);
 let products = loadJSON(PROD_KEY, []);
-let weighings = loadJSON(WEIGH_KEY, []);
+let weighings = loadJSON(WEIGH_KEY, []);   // chỉ là bản dự phòng; bộ lắng nghe sẽ thay bằng dữ liệu server
 let openingBalances = loadJSON(OPEN_KEY, []);
 let payments = loadJSON(PAY_KEY, []);
 let overtimeDays = loadJSON(OVERTIME_KEY, []);
@@ -1798,6 +2200,14 @@ async function chayDonNhanVien(){
 }
 
 function fullBackupExport(){
+  // V1.11.6 — CHẶN khi dữ liệu chưa tải xong.
+  // Trước đây bấm lúc app mới mở ra file 878 KB thay vì 14,7 MB — thiếu gần
+  // hết phiếu cân, mà nhìn tên file không biết được.
+  if(!daNhanGoiServer){
+    alert('⏳ Dữ liệu chưa tải xong từ server.\n\nChờ vài giây rồi sao lưu lại — '
+        + 'sao lưu lúc này sẽ THIẾU phiếu cân.');
+    return;
+  }
   const payload = { employees, products, weighings, openingBalances, payments, overtimeDays, companyInfo, appOptions, exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -1806,7 +2216,7 @@ function fullBackupExport(){
   const pad = n => String(n).padStart(2,'0');
   const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}h${pad(now.getMinutes())}`;
   a.href = url;
-  a.download = `sao-luu-can-tom-${stamp}.json`;
+  a.download = `SLCT_${stamp}_${weighings.length}phieu.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -2104,6 +2514,13 @@ function renderUserList(){
 }
 
 // ===== MÀN HÌNH CHỌN NGƯỜI DÙNG =====
+const ICON_CAN = '<svg viewBox="0 0 64 64" width="42" height="42" fill="none" stroke="currentColor" '
+  + 'stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">'
+  + '<rect x="10" y="12" width="44" height="9" rx="2.5"/>'
+  + '<path d="M14 21v27a3 3 0 0 0 3 3h30a3 3 0 0 0 3-3V21"/>'
+  + '<rect x="21" y="29" width="22" height="12" rx="2"/>'
+  + '<path d="M26 35h3M32 35h3M38 35h1"/></svg>';
+
 let splashDone = false;
 function showSplash(){
   if(document.getElementById('appSplash')) return;
@@ -2112,14 +2529,66 @@ function showSplash(){
   d.innerHTML = `
     <div class="lg-shell" style="text-align:center;">
       <div class="lg-hero">
-        <div class="lg-badge">⚖️</div>
+        <div class="lg-badge">${ICON_CAN}</div>
         <div class="lg-title">Cân Tôm</div>
-        <div class="lg-sub" id="splashMsg">Đang tải dữ liệu…</div>
+        <div class="lg-sub" id="splashMsg">Đang mở kết nối…</div>
+        <div id="splashBar" style="height:5px;background:rgba(255,255,255,.2);border-radius:3px;
+             overflow:hidden;margin:12px auto 8px;max-width:300px;">
+          <div id="splashBarIn" style="height:100%;background:#fff;width:6%;transition:width .3s;"></div>
+        </div>
+        <div class="lg-sub" id="splashCount" style="font-size:12.5px;"></div>
+        <div id="splashSlow" style="display:none;margin-top:16px;">
+          <div style="background:rgba(0,0,0,.22);border:1px solid rgba(255,214,153,.5);border-radius:9px;
+               padding:11px 13px;font-size:12.5px;color:#FFE2AC;line-height:1.6;text-align:left;">
+            <b style="color:#FFD98A;">Mạng chậm</b><br>
+            Vào cân được ngay, nhưng dữ liệu chưa đủ.<br>
+            <b>Chưa nên bấm Sao lưu lúc này — file sẽ thiếu.</b>
+          </div>
+          <button onclick="boQuaManCho()" style="margin-top:10px;width:100%;background:#fff;color:#123E77;
+                  border:none;border-radius:8px;padding:11px;font-size:13.5px;font-weight:700;">Vào cân ngay</button>
+        </div>
       </div>
     </div>`;
   document.body.appendChild(d);
+  if(!splashLucBatDau) splashLucBatDau = Date.now();
+  if(splashDongHo) clearInterval(splashDongHo);
+  splashDongHo = setInterval(veManCho, 700);
+  veManCho();
 }
+
+// Biểu tượng cân điện tử (mặt cân + thân + màn hình số) — dùng chung cho màn chờ và đăng nhập
+let splashLucBatDau = 0, splashDongHo = null;
+const SPLASH_QUA_HAN = 25000;   // 25 giây thì cho vào cân dù chưa tải xong
+
+function veManCho(){
+  const msg = document.getElementById('splashMsg');
+  if(!msg) return;
+  const giay = Math.round((Date.now() - splashLucBatDau)/1000);
+  const soPhieu = weighings.length;
+
+  let chu, phanTram;
+  if(!fsReady){ chu = 'Đang mở kết nối… (' + giay + 's)'; phanTram = 8; }
+  else if(!staffUsers.length && !daNhanGoiServer){ chu = 'Đang tải dữ liệu…'; phanTram = 30; }
+  else { chu = 'Đang tải phiếu cân…'; phanTram = Math.min(92, 30 + soPhieu/400); }
+
+  msg.textContent = chu;
+  const bar = document.getElementById('splashBarIn');
+  if(bar) bar.style.width = phanTram + '%';
+  const cnt = document.getElementById('splashCount');
+  if(cnt) cnt.textContent = soPhieu ? (soPhieu.toLocaleString('en-US') + ' phiếu') : '';
+
+  const slow = document.getElementById('splashSlow');
+  if(slow && giay*1000 >= SPLASH_QUA_HAN) slow.style.display = 'block';
+}
+
+function boQuaManCho(){
+  daBoQuaManCho = true;
+  finalizeUserGate();
+}
+let daBoQuaManCho = false;
+let daNhanGoiServer = false;   // đã nhận ít nhất một gói dữ liệu THẬT từ server
 function hideSplash(){
+  if(splashDongHo){ clearInterval(splashDongHo); splashDongHo = null; }
   const d = document.getElementById('appSplash');
   if(d) d.remove();
 }
@@ -2132,6 +2601,10 @@ function finalizeUserGate(){
 function checkUserGate(){
   if(currentUser){ hideSplash(); return; }                  // đã đăng nhập rồi
   if(document.getElementById('userPickerOverlay')) return;  // màn hình đăng nhập đang mở
+  // V1.11.6 — TẢI XONG MỚI CHO ĐĂNG NHẬP.
+  // Trước đây app cho vào ngay khi có danh sách tài khoản, dù phiếu cân chưa tải
+  // xong. Đó là lý do bấm Sao lưu lúc đó ra file 878 KB thay vì 14,7 MB.
+  if(!splashDone && !daBoQuaManCho && !daNhanGoiServer){ showSplash(); return; }
   if(staffUsers.length===0){
     // Chưa thấy tài khoản nào. Nếu đám mây chưa tải xong thì giữ màn hình chờ,
     // tránh cho vào app rồi mới đòi mật khẩu.
@@ -2153,9 +2626,9 @@ function showUserPickerOverlay(){
   overlay.innerHTML = `
     <div class="lg-shell">
       <div class="lg-hero">
-        <div class="lg-badge">⚖️</div>
+        <div class="lg-badge">${ICON_CAN}</div>
         <div class="lg-title">Cân Tôm</div>
-        <div class="lg-sub">Tính tiền công nhật</div>
+        <div class="lg-sub" id="lgReady">Tính tiền công nhật</div>
       </div>
       <div class="lg-card" id="lgCard">
         <div class="lg-label">Đăng nhập</div>
@@ -2314,7 +2787,9 @@ function wipeAllData(){
   alert("Đã xoá toàn bộ dữ liệu.");
 }
 function setDebtSection(s){
-  document.getElementById('openSection').classList.toggle('hidden', s!=='report');
+  // V1.11.9 — VÁ: "Số dư đầu kỳ" trước đây buộc theo mục 'report' nên bấm
+  // Phiếu chi thì nó biến mất. Nó vốn thuộc mục Phiếu chi.
+  document.getElementById('openSection').classList.toggle('hidden', s!=='pay');
   document.getElementById('paySection').classList.toggle('hidden', s!=='pay');
   document.getElementById('reportSection').classList.toggle('hidden', s!=='report');
   document.getElementById('detailSection').classList.toggle('hidden', s!=='detail');
@@ -3218,6 +3693,15 @@ setInterval(()=>{ if(appOptions.lockGps) refreshGpsCheck(); }, 120000);
 
 function checkWeighAllowed(){
   const flags = [];
+  // V1.11.6 — chặn cân khi server từ chối, hoặc mất mạng quá lâu
+  if(dangChanCan()){
+    const d = demPhieuKet();
+    return { ok:false, msg: d.tuChoi
+      ? '⛔ Server đang từ chối ghi dữ liệu. CÂN TAY RA GIẤY.\n\nPhiếu đã cân vẫn an toàn trong Sổ máy. '
+        + 'Bấm Xuất Excel TRƯỚC khi tải lại app.'
+      : '⛔ Mất mạng quá ' + CHAN_PHUT + ' phút. CÂN TAY RA GIẤY.\n\nMạng về sẽ tự gửi lên và tự mở lại — '
+        + 'tải lại app cũng không mất phiếu.' };
+  }
   if(can('bypassLock') && currentUser) return { ok:true, flags:[] };
   // 1. Khung giờ
   if(appOptions.lockHours){
@@ -4870,6 +5354,7 @@ let soMucDangGui = 0;        // số bản ghi đang chờ gửi trong lượt n
 let syncInFlight = false;    // đang gửi -> không chồng lệnh
 let syncQueued = false;      // có thay đổi mới trong lúc đang gửi
 let cloudInitRunning = false;
+let lucServerPhanHoi = 0;
 
 
 function renderEverything(){
@@ -4931,6 +5416,14 @@ function attachRealtimeListeners(){
       // các lệnh ghi lúc mất mạng. Tự làm thêm sẽ làm sống lại dữ liệu đã xoá.
       // Ghi nhận bản ghi Firebase đã nhận nhưng server chưa xác nhận,
       // để hiện dấu ⏳ cạnh phiếu trong bảng chi tiết.
+      // V1.11.6 — gói đến TỪ SERVER (không phải bộ nhớ đệm) => dữ liệu đã đủ.
+      if(qs.metadata && qs.metadata.fromCache === false){
+        lucServerPhanHoi = Date.now();
+        if(name === 'weighings' && !daNhanGoiServer){
+          daNhanGoiServer = true;
+          setTimeout(finalizeUserGate, 300);   // để render kịp rồi mới mở cổng
+        }
+      }
       qs.docs.forEach(d=>{
         if(d.metadata && d.metadata.hasPendingWrites) idsChoXacNhan.add(d.id);
         else idsChoXacNhan.delete(d.id);
@@ -4939,7 +5432,7 @@ function attachRealtimeListeners(){
       COLLECTION_SETTERS[name](docs);
       luuKhoLenMay(name, docs);
       lastSynced[name] = deepCopy(docs);
-      if(name==='staffUsers'){ finalizeUserGate(); applyCurrentUserPermissions(); }
+      if(name==='staffUsers') applyCurrentUserPermissions();
       // V1.11.1 — GỐC BỆNH kẹt "Đang kết nối": trước đây chỉ syncNow mới đặt
       // trạng thái, bộ lắng nghe không đặt. Nay gói về từ server là báo xong.
       if(!khoDocLoi.length && !khoGhiLoi.length) updateCloudStatus("synced");
@@ -5019,10 +5512,24 @@ async function cloudInit(){
       // Dùng kho lưu trữ riêng của trình duyệt, dung lượng lớn hơn nhiều so với 5 MB.
       try{
         fsDb.settings({ cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED });
-        await gioiHanThoiGian(fsDb.enablePersistence({ synchronizeTabs:true }), 8000, 'bật bộ nhớ đệm');
+        // V1.11.5 — SỬA LỖI NẶNG của V1.11.1:
+        // Đồng hồ đếm ngược ở đây làm cờ boNhoDemBat bị sai. Máy đã có nhiều dữ
+        // liệu thì mở kho đệm lâu hơn 8 giây; quá hạn là app tưởng bộ nhớ đệm
+        // không bật, quay về chép TOÀN BỘ phiếu cân vào localStorage -> vỡ trần
+        // 5 MB (đúng lỗi V1.6.0). Nay vẫn giữ đồng hồ để không treo app, nhưng
+        // gắn thêm .then() để khi kho đệm mở xong (dù muộn) thì cờ vẫn được bật.
+        const hua = fsDb.enablePersistence({ synchronizeTabs:true });
+        hua.then(()=>{
+          if(!boNhoDemBat){
+            boNhoDemBat = true;
+            console.log('Bộ nhớ đệm đã bật (muộn hơn đồng hồ đếm ngược).');
+            try{ localStorage.removeItem(WEIGH_KEY); }catch(e){}
+          }
+        }).catch(()=>{});
+        await gioiHanThoiGian(hua, 15000, 'bật bộ nhớ đệm');
         boNhoDemBat = true;
       }catch(e){
-        console.warn("Không bật được bộ nhớ đệm Firebase:", e && e.code);
+        console.warn("Chưa bật xong bộ nhớ đệm Firebase:", (e && (e.code || e.message)) || e);
       }
     }
     await gioiHanThoiGian(firebase.auth().signInAnonymously(), 8000, 'đăng nhập');
@@ -5073,8 +5580,25 @@ function deepCopy(x){ return JSON.parse(JSON.stringify(x)); }
    Dưới 5 phiếu thì im lặng hoàn toàn: cân liên tục thì lúc nào cũng có phiếu
    đang bay lên server, đó là bình thường, không được làm người cân hoảng.
    ========================================================================== */
-const KET_SO_PHIEU = 5;      // đủ 5 phiếu mới la làng
-const KET_GIAY     = 60;     // và phải quá 60 giây
+/* V1.11.6 — BA MỨC, phân biệt theo NGUYÊN NHÂN chứ không gộp chung.
+   - Mất mạng: Firestore giữ lệnh ghi trong máy và tự gửi lại khi mạng về.
+     Phiếu KHÔNG mất, F5 cũng không mất => chỉ báo vàng, vẫn cho cân.
+   - Server TỪ CHỐI: Firestore HUỶ lệnh ghi, F5 là trắng (đúng cảnh 08/08).
+     Cân thêm cũng vô ích => chặn ngay từ phiếu đầu. */
+const KET_SO_PHIEU  = 5;      // đủ 5 phiếu mới báo vàng
+const KET_GIAY      = 60;     // và phải quá 60 giây
+const CHAN_PHUT     = 5;      // mất mạng quá 5 phút -> chặn cân
+
+// Lỗi nào là SERVER TỪ CHỐI (nguy hiểm), lỗi nào chỉ là mất mạng (không sao)
+function laServerTuChoi(lyDo){
+  const t = String(lyDo || '');
+  return t.indexOf('permission') >= 0
+      || t.indexOf('unauthenticated') >= 0
+      || t.indexOf('resource-exhausted') >= 0
+      || t.indexOf('chặn quyền') >= 0
+      || t.indexOf('Hết hạn mức') >= 0
+      || t.indexOf('Chưa đăng nhập') >= 0;
+}
 
 function demPhieuKet(){
   const now = Date.now();
@@ -5090,10 +5614,27 @@ function demPhieuKet(){
     if(!dangCho){ tuoiChoXacNhan.delete(id); return; }
     if(now - v.luc >= han){ n++; if(!somNhat || v.luc < somNhat) somNhat = v.luc; }
   });
-  // Phiếu server TỪ CHỐI thẳng thì tính luôn, không cần chờ hết giờ
-  const tuChoi = phieuLoiGui.length;
-  return { n: Math.max(n, tuChoi), somNhat, tuChoi };
+  // Bao nhiêu bản ghi bị SERVER TỪ CHỐI thật sự (không tính lỗi mất mạng)
+  const tuChoi = phieuLoiGui.filter(x=>laServerTuChoi(x.lyDo)).length;
+  const matMangLoi = phieuLoiGui.length - tuChoi;
+  const tong = Math.max(n + matMangLoi, tuChoi);
+
+  // Mức: 0 = im lặng · 1 = vàng (vẫn cân) · 2 = đỏ (chặn cân)
+  let muc = 0;
+  const matMang = (navigator && navigator.onLine === false);
+  const choLau = somNhat ? (now - somNhat) : 0;
+  if(tuChoi > 0){
+    muc = 2;                                        // server từ chối -> chặn NGAY
+  }else if(choLau >= CHAN_PHUT*60*1000 && tong > 0){
+    muc = 2;                                        // mất mạng quá lâu -> chặn
+  }else if(tong >= KET_SO_PHIEU || (matMang && tong > 0)){
+    muc = 1;                                        // mất mạng -> vàng, vẫn cân
+  }
+  return { n: tong, somNhat, tuChoi, muc, matMang };
 }
+
+// Đang bị chặn cân?
+function dangChanCan(){ return demPhieuKet().muc === 2; }
 
 /* ==========================================================================
    V1.11.3 — GIAI ĐOẠN 0: ĐO SỨC CHỨA DỮ LIỆU
@@ -5200,6 +5741,35 @@ function doSucChua(){
   wrap.innerHTML = h;
 }
 
+/* V1.11.6 — Đối chiếu gọn cho người cân, đặt ở tab Cân tôm.
+   CHỈ XEM, không có nút gửi lại — gửi lại có thể làm sống lại phiếu người
+   khác đã cố ý xoá, nên để dành cho người có quyền vào Cài đặt. */
+function doiChieuNhanhTabCan(){
+  const el = document.getElementById('ktNhanhKetQua');
+  if(!el) return;
+  const dk = (document.getElementById('weighDate') && document.getElementById('weighDate').value) || todayKey();
+  if(soMayHong){
+    el.innerHTML = '<div style="background:#FFF8E8;border:1px solid #F0DCB0;border-radius:7px;padding:8px 10px;color:#7A5A12;">Máy này không dùng được Sổ máy nên chưa đối chiếu được.</div>';
+    return;
+  }
+  const kq = doiChieuChiTiet(dk);
+  if(!kq.soMay){
+    el.innerHTML = '<div class="muted">Sổ máy chưa có phiếu nào của ngày ' + ngayVN(dk) + '.</div>';
+    return;
+  }
+  if(!kq.thieu.length){
+    el.innerHTML = '<div style="background:#E9F7EF;border:1px solid #B7E3C9;border-radius:7px;padding:8px 10px;color:#1E6B48;font-weight:600;">'
+      + '✓ Sổ máy khớp server · ' + kq.soMay.toLocaleString('en-US') + ' / ' + kq.server.toLocaleString('en-US')
+      + ' phiếu · kiểm lúc ' + gioNgan(Date.now()) + '</div>';
+    return;
+  }
+  const kg = kq.thieu.reduce((a,x)=>a + (Number(x.k)||0), 0);
+  el.innerHTML = '<div style="background:#FDECEA;border:1px solid #F0C9C2;border-radius:7px;padding:9px 11px;color:#8E2018;font-weight:700;">'
+    + '⚠ Sổ máy ' + kq.soMay.toLocaleString('en-US') + ' · Server ' + kq.server.toLocaleString('en-US')
+    + ' — THIẾU ' + kq.thieu.length + ' PHIẾU (' + fmtKg(kg) + ' KG)'
+    + '<div style="font-weight:400;font-size:11.5px;margin-top:5px;">Bấm Xuất Excel để giữ bản cứng, rồi báo người quản lý xử lý trong Cài đặt.</div></div>';
+}
+
 function doiChieuTay(){
   const el = document.getElementById('doiChieuKetQua');
   const dk = (document.getElementById('doiChieuNgay').value) || todayKey();
@@ -5249,21 +5819,59 @@ function doiChieuTay(){
 function veCanhBaoKet(){
   const bar = document.getElementById('ketBar');
   if(!bar) return;
-  const { n, somNhat, tuChoi } = demPhieuKet();
-  if(n < KET_SO_PHIEU){ bar.style.display = 'none'; return; }
+  const { n, somNhat, tuChoi, muc } = demPhieuKet();
 
-  document.getElementById('ketBarTitle').textContent =
-    '⚠️ ' + n.toLocaleString('en-US') + ' PHIẾU CHƯA LÊN SERVER — ĐỪNG TẮT TRÌNH DUYỆT';
-  let vi = '';
-  if(tuChoi){
-    const lyDo = {}; phieuLoiGui.forEach(x=>{ lyDo[x.lyDo] = 1; });
-    vi = 'Server từ chối: ' + Object.keys(lyDo).join(' · ') + '. ';
-  }else{
-    vi = 'Server không phản hồi từ ' + gioNgan(somNhat) + '. ';
+  if(muc === 0){ bar.style.display = 'none'; capNhatKhoaNhap(false); return; }
+
+  if(muc === 1){
+    // VÀNG — mất mạng, Firestore vẫn giữ phiếu và sẽ tự gửi. Cân bình thường.
+    bar.style.display = 'block';
+    bar.style.background = '#B87A0E';
+    document.getElementById('ketBarTitle').textContent =
+      '⚠ Mất mạng — ' + n.toLocaleString('en-US') + ' phiếu chờ, sẽ tự lên khi có mạng';
+    document.getElementById('ketBarWhy').textContent = '';
+    const acts = bar.querySelector('.acts');
+    if(acts) acts.style.display = 'none';
+    capNhatKhoaNhap(false);
+    return;
   }
-  document.getElementById('ketBarWhy').textContent =
-    vi + 'Phiếu vẫn nằm trong sổ máy nên không mất. Xuất file chi tiết để giữ bản cứng.';
+
+  // ĐỎ — chặn cân
   bar.style.display = 'block';
+  bar.style.background = '#8E2018';
+  const acts = bar.querySelector('.acts');
+  if(acts) acts.style.display = 'flex';
+  document.getElementById('ketBarTitle').textContent = '⛔ NGỪNG CÂN — CÂN TAY RA GIẤY';
+  let vi;
+  if(tuChoi){
+    const lyDo = {}; phieuLoiGui.forEach(x=>{ if(laServerTuChoi(x.lyDo)) lyDo[x.lyDo] = 1; });
+    // Server TỪ CHỐI: Firestore đã huỷ hàng đợi, F5 là mất sạch (đúng cảnh 08/08).
+    // Phải xuất file TRƯỚC khi tải lại.
+    vi = 'Server từ chối ghi: ' + Object.keys(lyDo).join(' · ') + '. '
+       + n.toLocaleString('en-US') + ' phiếu vẫn nằm trong Sổ máy. '
+       + '⚠️ BẤM XUẤT EXCEL TRƯỚC KHI TẢI LẠI APP.';
+  }else{
+    // Mất mạng: Firestore giữ hàng đợi trên đĩa, F5 xong tự gửi tiếp. An toàn.
+    vi = 'Mất mạng từ ' + gioNgan(somNhat) + ' (quá ' + CHAN_PHUT + ' phút). '
+       + n.toLocaleString('en-US') + ' phiếu đang chờ. '
+       + 'Mạng về sẽ tự gửi lên và tự mở lại — tải lại app cũng không mất phiếu.';
+  }
+  document.getElementById('ketBarWhy').textContent = vi;
+  capNhatKhoaNhap(true);
+}
+
+// Khoá / mở nút NHẬP
+let dangKhoaNhap = false;
+function capNhatKhoaNhap(khoa){
+  if(khoa === dangKhoaNhap) return;
+  dangKhoaNhap = khoa;
+  const btn = document.getElementById('btnNhap');
+  if(btn){
+    btn.disabled = khoa;
+    btn.style.opacity = khoa ? '.45' : '';
+    btn.style.filter = khoa ? 'grayscale(1)' : '';
+    btn.style.cursor = khoa ? 'not-allowed' : '';
+  }
 }
 
 function gioNgan(ms){
@@ -5709,18 +6317,31 @@ if(document.fonts && document.fonts.ready) document.fonts.ready.then(measureTopB
 switchTab('weigh');
 showSplash();      // khoá app ngay từ giây đầu, tránh vào được rồi mới đòi mật khẩu
 checkUserGate();   // nếu máy đã có sẵn tài khoản thì hiện đăng nhập ngay
-setTimeout(()=>{ if(!splashDone) finalizeUserGate(); }, 10000);  // mạng lỗi thì không kẹt quá 10 giây
+setTimeout(()=>{ if(!splashDone) finalizeUserGate(); }, SPLASH_QUA_HAN + 6000);  // không bao giờ kẹt màn chờ
 soMayNap();          // V1.11.1 — nạp sổ máy trước khi cân
+// V1.11.5 — kho phiếu cũ trong localStorage chiếm tới 5 MB và không còn tác dụng
+// khi bộ nhớ đệm Firebase đã bật. Dọn sớm để nhường chỗ cho Sổ máy.
+setTimeout(()=>{
+  try{
+    if(boNhoDemBat && localStorage.getItem(WEIGH_KEY)){
+      localStorage.removeItem(WEIGH_KEY);
+      console.log('Đã dọn kho phiếu cũ trong localStorage.');
+    }
+  }catch(e){}
+}, 20000);
 cloudInit();
 checkPinLock();
 checkBackupReminder();
 
 function checkBackupReminder(){
+  // V1.11.6 — chờ tải xong mới xét. Không thì nhắc lúc app mới mở, ra file thiếu.
+  if(!daNhanGoiServer){ setTimeout(checkBackupReminder, 3000); return; }
   const last = Number(localStorage.getItem("cantom_last_backup_at") || 0);
   const now = Date.now();
   const daysSince = last ? Math.floor((now - last) / (24*60*60*1000)) : null;
   const remindDays = appOptions.backupDays || 3;
   if(employees.length===0 && weighings.length===0) return;
+  if(!daNhanGoiServer) return;   // V1.11.6 — chưa tải xong thì đừng nhắc, file sẽ thiếu
   if(daysSince === null || daysSince >= remindDays){
     setTimeout(()=>{
       const msg = daysSince === null
