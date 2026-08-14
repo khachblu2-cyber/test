@@ -129,8 +129,7 @@
     doiChieuChiTiet() — chỉ chạy khi lệch, quét ~20ms
     doiChieuNgam() — tự chạy mỗi 5 phút, KHÔNG gọi server, không tốn lượt đọc
     doiChieuTay() — nút trong Cài đặt (đầy đủ, có bảng chi tiết)
-    doiChieuNhanhTabCan() — nút ở cuối tab Cân tôm cho người cân (CHỈ XEM,
-      không có nút gửi lại: gửi lại có thể làm sống lại phiếu người khác đã xoá)
+    (V1.12.2 đã BỎ nút đối chiếu ở tab Cân tôm — xem mục lịch sử)
 
   ▸ BA MỨC CẢNH BÁO (V1.11.6-1.11.7)
     Phân biệt theo NGUYÊN NHÂN, không gộp chung:
@@ -356,6 +355,79 @@
            RIÊNG số tiền dòng TỔNG CỘNG giữ TO 5.0mm (class .b-tong td.b-amt),
            nhãn "TỔNG CỘNG :" để 3.6mm cho khỏi xuống dòng làm cao ô.
            Chỉ đụng CSS .bill80-page, KHÔNG động logic tính tiền.
+           (md5 baad58da8a13ecf7f38207bc79acf6ae)
+  V1.12.1  VÁ 1,45 TRIỆU LƯỢT ĐỌC FIRESTORE KHI TRẢ LƯƠNG (13/08/2026).
+           Nguyên nhân: MỌI saveAll() đều kết thúc bằng cloudSync() ->
+           syncNow() quét CẢ 7 KHO, so từng bản ghi với lastSynced, trong đó
+           kho weighings có 35.889 phiếu. Bộ lắng nghe cũng bắn lại kho vừa đổi.
+           Trả lương ~200 người = 200 vòng như vậy -> vượt hạn mức miễn phí
+           50K/ngày tới 29 lần, tốn 58.418đ.
+           Vá: saveAll(khongDongBo). Truyền true ở 7 hàm ĐÃ gọi ghiNgay/xoaNgay
+           (bản ghi đã lên server rồi, vòng đồng bộ đó THỪA HOÀN TOÀN):
+             toggleOvertimeDay · addWeighing · saveEditWeigh ·
+             deleteSingleWeigh · deleteWeighGroup ·
+             confirmPaymentAndPrintBill · deletePayment
+           29 chỗ còn lại (danh mục, cài đặt, người dùng) GIỮ NGUYÊN saveAll()
+           vì chúng KHÔNG đi qua ghiNgay, cần vòng đồng bộ để lên server.
+           KHÔNG mất dữ liệu: ghiNgay đã gửi từng bản ghi lên server ngay.
+           (md5 59d21dbbda56bccd91a9ac70bafc0e97)
+  V1.12.2  FILE EXCEL GỘP CẢ SỔ MÁY — vá lỗ hổng "cứu dữ liệu mà không lấy ra được".
+           Vấn đề: nút Xuất Excel chỉ xuất từ `weighings` (dữ liệu server), nên
+           khi có sự cố thì file ra vẫn THIẾU đúng những phiếu chưa lên — vô
+           dụng đúng lúc cần nhất. Sổ máy giữ được phiếu đó nhưng KHÔNG CÓ
+           ĐƯỜNG NÀO LẤY RA:
+             - Máy chủ vào được Cài đặt nhưng sổ TRỐNG (máy đó không cân)
+             - Máy cân có sổ ĐẦY nhưng công nhân KHÔNG vào được Cài đặt
+           Vá: dungBangChiTiet() gộp 2 nguồn, thêm cột "Ghi chú" đánh dấu
+           CHƯA LÊN SERVER cho phiếu chỉ có trong sổ máy. Xuất xong hiện thông
+           báo nếu có phiếu chưa lên.
+           BỎ nút "Đối chiếu" ở tab Cân tôm (gỡ luôn hàm doiChieuNhanhTabCan)
+           — công nhân bấm ra "khớp/thiếu" cũng không biết làm gì tiếp. App vẫn
+           TỰ đối chiếu ngầm 5 phút/lần và tự hiện cảnh báo. Nút Đối chiếu đầy
+           đủ trong Cài đặt vẫn giữ cho người quản lý.
+           LƯU Ý QUAN TRỌNG: Sổ máy là RIÊNG TỪNG MÁY. File Excel xuất ra gồm
+           toàn bộ phiếu của CẢ XƯỞNG (từ server) + phần máy đó cân mà chưa lên.
+           Máy nào kẹt phiếu thì phải xuất trên CHÍNH MÁY ĐÓ mới đủ.
+           (md5 d4128ae51ef7476490c63db193cd08a4)
+  V1.12.3  TẢI PHIẾU CÂN THEO QUYỀN TÀI KHOẢN — giảm 15 lần cho máy cân.
+           Trước đây bộ lắng nghe weighings KHÔNG có .where() -> mọi máy đều
+           tải TOÀN BỘ kho (40.000 phiếu, 10,4 MB, 8-15 giây trên 4G) mỗi lần
+           mở app, và con số đó tăng ~2.700/ngày, KHÔNG BAO GIỜ dừng.
+           Nay chia theo quyền (hàm soNgayCanTai / mocTaiPhieu):
+             - Chỉ quyền 'weigh'          -> 1 NGÀY  (~2.700 phiếu · 0,5s)
+             - Có quyền 'report'          -> 3 NGÀY  (~8.100 phiếu · 1,4s)
+             - Có quyền 'debt' hoặc 'config' -> ĐẦY ĐỦ
+           VÌ SAO Công nợ KHÔNG cắt được: buildDebtBalanceData gọi
+           congTheoNgay(B.thoTheoNgay, e.id, null, toKey) — tham số null nghĩa
+           là cộng TỪ NGÀY ĐẦU TIÊN. Số dư nợ là tổng tiền công từ trước tới
+           nay trừ tổng đã trả. Cắt là SỐ DƯ SAI, mà lại không báo lỗi gì.
+           Tab Báo cáo: nếu người dùng chọn khoảng ngày RỘNG HƠN mức mặc định,
+           mocTaiPhieu() tự nới mốc theo prodReportFrom / pivotDate. Không nới
+           thì báo cáo THIẾU dữ liệu mà không báo lỗi — nguy hiểm hơn chậm.
+           Trên 7 ngày thì hỏi xác nhận trước (canhBaoKhoangDai).
+           ganLaiListenerNeuCan() gọi khi đổi ngày / đổi tài khoản / đổi ngày
+           báo cáo. CHỈ gắn lại khi mốc thật sự đổi — tránh tốn lượt đọc.
+           LƯU Ý: phải gọi hàm huỷ listener cũ (firestoreListeners.forEach),
+           không thì listener cũ vẫn sống, vẫn nhận dữ liệu, VẪN TÍNH TIỀN ĐỌC.
+           Kết quả với 6 máy: 4/6 máy nhẹ đi 15 lần (gồm cả 3 máy cân).
+           Còn máy Công nợ và máy chủ tải đầy đủ — sẽ nhẹ khi làm bản tổng hợp ngày.
+           (md5 9f98379af49fc0b41bd7ea2d87bf6dc9)
+  V1.12.4  SỬA LỖI V1.12.3 — tính năng tải theo quyền KHÔNG CHẠY.
+           Bộ lắng nghe gắn NGAY KHI KẾT NỐI XONG, tức TRƯỚC lúc đăng nhập,
+           lúc đó currentUser còn null. V1.12.3 cho can2() trả TRUE khi chưa
+           đăng nhập -> soNgayCanTai() trả 0 -> MỌI MÁY vẫn tải đầy đủ 39.000
+           phiếu ở màn chờ. Đăng nhập xong mới thu hẹp, nhưng ĐÃ TẢI XONG RỒI.
+           Vá: đảo ngược mặc định.
+             - Chưa đăng nhập      -> tải TỐI THIỂU (1 ngày)
+             - Máy chưa có tài khoản nào (staffUsers rỗng) -> đầy đủ
+             - Đăng nhập xong      -> applyCurrentUserPermissions gọi
+                                      ganLaiListenerNeuCan() để nới theo quyền
+           Máy cân : 2.700 -> đăng nhập -> 2.700 (KHÔNG tải lại gì)
+           Máy chủ : 2.700 -> đăng nhập -> 39.000 (tải thêm phần còn thiếu)
+           BÀI HỌC: khi phân quyền ảnh hưởng tới việc TẢI DỮ LIỆU, phải xét
+           THỨ TỰ — cái gì chạy trước lúc đăng nhập thì chưa biết người dùng
+           là ai. Mặc định lúc chưa biết phải là mức AN TOÀN NHẤT (ít nhất),
+           không phải mức rộng nhất.
 
 ================================================================================
   HẾT PHẦN BÀN GIAO
@@ -769,7 +841,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">V1.12.0</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">V1.12.4</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -852,10 +924,11 @@
   <!-- V1.11.6 — KHỐI KIỂM TRA cho người cân (Cài đặt họ không vào được) -->
   <div class="wrap-full">
     <div style="border:1px solid var(--line);border-radius:9px;padding:12px 13px;background:#FAFCFF;margin-top:10px;">
-      <div style="font-size:13px;font-weight:700;color:var(--blue-dk);margin-bottom:9px;">🔍 Kiểm tra dữ liệu hôm nay</div>
-      <div style="display:flex;gap:9px;margin-bottom:9px;flex-wrap:wrap;">
-        <button class="btn btn-outline" style="flex:1;min-width:130px;" onclick="doiChieuNhanhTabCan()">🔍 Đối chiếu</button>
-        <button class="btn btn-outline" style="flex:1;min-width:130px;" onclick="xuatFileChiTiet()">📄 Xuất Excel</button>
+      <div style="font-size:13px;font-weight:700;color:var(--blue-dk);margin-bottom:9px;">📄 Xuất file phiếu cân</div>
+      <button class="btn btn-outline btn-block" onclick="xuatFileChiTiet()">📄 Xuất file Excel hôm nay</button>
+      <div class="muted" style="font-size:11.5px;margin-top:8px;line-height:1.6;">
+        File gồm toàn bộ phiếu cân trong ngày. Nếu có phiếu chưa lên server,
+        file vẫn ghi đủ và đánh dấu ở cột Ghi chú.
       </div>
       <div id="ktNhanhKetQua" style="font-size:12px;"></div>
     </div>
@@ -1110,7 +1183,7 @@
     <div id="bcMuc1">
       <div class="card-title">📋 Bảng tổng hợp chi tiết cân theo ngày</div>
       <div class="card">
-        <div class="field"><label>Chọn ngày</label><input type="date" id="pivotDate" onchange="renderPivotTable(document.getElementById('pivotDate').value)"></div>
+        <div class="field"><label>Chọn ngày</label><input type="date" id="pivotDate" onchange="doiNgayPivot()"></div>
       </div>
       <div style="overflow-x:auto;">
         <div id="pivotTableWrap"></div>
@@ -1128,8 +1201,8 @@
       <div class="card-title">🏭 Báo cáo tổng hợp thành phẩm chế biến</div>
       <div class="card">
         <div class="row">
-          <div class="field"><label>Từ ngày</label><input type="date" id="prodReportFrom" onchange="renderProductReport()"></div>
-          <div class="field"><label>Đến ngày</label><input type="date" id="prodReportTo" onchange="renderProductReport()"></div>
+          <div class="field"><label>Từ ngày</label><input type="date" id="prodReportFrom" onchange="doiNgayBaoCao()"></div>
+          <div class="field"><label>Đến ngày</label><input type="date" id="prodReportTo" onchange="doiNgayBaoCao()"></div>
         </div>
       </div>
       <div style="overflow-x:auto;">
@@ -1510,7 +1583,15 @@ function luuPhieuLenMayNeuCan(){
   }
 }
 
-function saveAll(){
+/* V1.12.1 - THAM SO khongDongBo.
+   Van de: moi saveAll() deu goi cloudSync() -> syncNow() quet CA 7 KHO so
+   tung ban ghi voi lastSynced, trong do kho weighings co 35.889 phieu.
+   Cac thao tac DA goi ghiNgay()/xoaNgay() thi ban ghi DA len server roi,
+   vong dong bo do la THUA HOAN TOAN.
+   Ngay 13/08 tra luong ~200 nguoi -> 1,45 TRIEU luot doc Firestore, vuot
+   han muc mien phi 29 lan. Truyen true cho cac thao tac do.
+   Danh muc/cai dat/nguoi dung van goi saveAll() binh thuong. */
+function saveAll(khongDongBo){
   luuPhieuLenMayNeuCan();
   try{
     localStorage.setItem(EMP_KEY, JSON.stringify(employees));
@@ -1531,7 +1612,7 @@ function saveAll(){
           + "Vào Cài đặt → Dữ liệu → Đối chiếu để kiểm tra.");
     }
   }
-  cloudSync();
+  if(!khongDongBo) cloudSync();
 }
 let daBaoLoiLuu = false;
 
@@ -2754,6 +2835,7 @@ function applyWeighDateLock(){
   }
 }
 function applyCurrentUserPermissions(){
+  setTimeout(ganLaiListenerNeuCan, 100);   // V1.12.3 — quyền đổi thì mức tải cũng đổi
   const bar = document.getElementById('currentUserBar');
   applyWeighDateLock();
   if(!currentUser){
@@ -3441,7 +3523,19 @@ function onWeighDateChange(){
     document.getElementById('weighDate').value = todayKey();
     alert("Tài khoản của bạn chỉ được cân cho ngày hôm nay.");
     return;
-  } renderWeighTab(); }
+  }
+  ganLaiListenerNeuCan();   // V1.12.3 — đổi ngày thì tải phiếu ngày đó
+  renderWeighTab(); }
+
+/* V1.12.3 — Gắn lại listener weighings khi mốc ngày cần tải thay đổi.
+   Gọi khi: đổi ngày đang xem, đổi tài khoản, đổi tab.
+   Nếu mốc không đổi thì KHÔNG làm gì — tránh gắn lại vô ích và tốn lượt đọc. */
+function ganLaiListenerNeuCan(){
+  if(!fsReady || !fsDb) return;
+  const moc = mocTaiPhieu();
+  if(moc === mocDangTai) return;
+  attachRealtimeListeners();
+}
 
 function getFilteredEmployees(){
   const q = (document.getElementById('empSearch').value||'').trim().toLowerCase();
@@ -3550,7 +3644,7 @@ function toggleOvertimeDay(employeeId, dateKey){
     overtimeDays.push(them);
     ghiNgay('overtimeDays', them);
   }
-  saveAll();
+  saveAll(true);   // da goi ghiNgay/xoaNgay roi, khong can quet lai 7 kho
   renderEmployeePicker();
   renderWeighTab();
 }
@@ -3782,7 +3876,7 @@ function addWeighing(){
   weighings.unshift(phieu);
   soMayThem(phieu);                 // V1.11.1 — ghi vào sổ máy (gom 2 giây)
   ghiNgay('weighings', phieu);      // gửi Firebase ngay, không chờ
-  saveAll();
+  saveAll(true);   // da goi ghiNgay/xoaNgay roi, khong can quet lai 7 kho
   document.getElementById('wKgBig').value='';
   updateWeighPricePreview();
   renderWeighTab();
@@ -4117,7 +4211,7 @@ function saveEditWeigh(id){
   w.amount = newKg * w.unitPrice;
   editingWeighId = null;
   ghiNgay('weighings', w);
-  saveAll();
+  saveAll(true);   // da goi ghiNgay/xoaNgay roi, khong can quet lai 7 kho
   renderWeighTab();
 }
 let pendingDeleteTimer = null;
@@ -4145,7 +4239,7 @@ function deleteSingleWeigh(id){
   weighings = weighings.filter(w=>w.id!==id);
   soMayXoa(id);
   xoaNgay('weighings', id);
-  saveAll();
+  saveAll(true);   // da goi ghiNgay/xoaNgay roi, khong can quet lai 7 kho
   renderWeighTab();
 }
 function deleteWeighGroup(idsStr){
@@ -4163,7 +4257,7 @@ function deleteWeighGroup(idsStr){
   weighings = weighings.filter(w=>!ids.includes(w.id));
   soMayXoa(ids);
   ids.forEach(i=>xoaNgay('weighings', i));
-  saveAll();
+  saveAll(true);   // da goi ghiNgay/xoaNgay roi, khong can quet lai 7 kho
   renderWeighTab();
 }
 
@@ -4322,7 +4416,7 @@ function confirmPaymentAndPrintBill(){
   payments.push(phieuChi);
   ghiNgay('payments', phieuChi);
   logActivity('Chi tiền', `${emp?emp.name:''} — ${formatNumber(amount)} đ`);
-  saveAll();
+  saveAll(true);   // da goi ghiNgay/xoaNgay roi, khong can quet lai 7 kho
   renderDebtTab();
   printBill80(emp, type, amount, checkedDays);
   statusEl.textContent = `✅ Đã chi ${formatMoney(amount)} cho ${emp.name} và in bill.`;
@@ -4497,7 +4591,7 @@ function deletePayment(id){
   if(!confirm("Xoá phiếu chi này?")) return;
   payments = payments.filter(p=>p.id!==id);
   xoaNgay('payments', id);
-  saveAll();
+  saveAll(true);   // da goi ghiNgay/xoaNgay roi, khong can quet lai 7 kho
   renderDebtTab();
 }
 function renderPaymentList(){
@@ -5090,6 +5184,31 @@ function buildProductReportData(){
   const totalAmount = rows.reduce((s,r)=>s+r.amount,0);
   return { fromKey, toKey, rows, totalQty, totalAmount };
 }
+/* V1.12.3 — Đổi ngày ở tab Báo cáo: nới mốc tải rồi mới vẽ.
+   Nếu khoảng chọn dài, cảnh báo trước vì tải có thể lâu. */
+function doiNgayBaoCao(){
+  if(!canhBaoKhoangDai()) return;
+  ganLaiListenerNeuCan();
+  renderProductReport();
+}
+function doiNgayPivot(){
+  ganLaiListenerNeuCan();
+  renderPivotTable(document.getElementById('pivotDate').value);
+}
+// Cảnh báo khi khoảng ngày quá dài (chỉ hỏi khi trên 7 ngày)
+function canhBaoKhoangDai(){
+  const f = document.getElementById('prodReportFrom');
+  const t = document.getElementById('prodReportTo');
+  if(!f || !t || !f.value || !t.value) return true;
+  const d1 = new Date(f.value + 'T00:00:00'), d2 = new Date(t.value + 'T00:00:00');
+  const soNgay = Math.round((d2 - d1) / 86400000) + 1;
+  if(soNgay <= 7) return true;
+  if(soNgayCanTai() === 0) return true;              // tài khoản vốn tải đầy đủ
+  const uocPhieu = soNgay * 2700;
+  return confirm('Bạn chọn ' + soNgay + ' ngày — khoảng ' + uocPhieu.toLocaleString('en-US')
+    + ' phiếu.\nTải có thể mất 15-50 giây tuỳ mạng.\n\nTiếp tục?');
+}
+
 function renderProductReport(){
   const wrap = document.getElementById('productReportWrap');
   const { rows, totalQty, totalAmount } = buildProductReportData();
@@ -5416,13 +5535,78 @@ function luuKhoLenMay(name, docs){
   catch(e){ console.warn('Không lưu được kho "'+name+'" trên máy:', e && e.name); }
 }
 
+/* ==========================================================================
+   V1.12.3 — TẢI PHIẾU CÂN THEO TAB ĐANG MỞ
+   --------------------------------------------------------------------------
+   Trước đây bộ lắng nghe kho weighings KHÔNG có .where() -> tải TOÀN BỘ kho
+   (40.000 phiếu, 10,4 MB) mỗi lần mở app, và con số đó tăng mãi.
+   Nay mỗi tab chỉ tải đúng phần nó cần:
+     - Tab Cân tôm : 1 ngày   (~2.700 phiếu · 0,5s)   <- máy cân nhẹ 15 lần
+     - Tab Báo cáo : 3 ngày   (~8.100 phiếu · 1,4s)
+     - Tab Công nợ : ĐẦY ĐỦ   (bắt buộc — số dư cộng từ ngày đầu tiên tới nay,
+                               congTheoNgay(..., null, toKey), cắt là SAI SỐ DƯ)
+   Lấy mức RỘNG NHẤT trong các tab mà tài khoản có quyền, để đổi tab không
+   phải tải lại. Đổi ngày đang xem thì gắn lại listener cho ngày đó.
+   QUAN TRỌNG: phải gọi hàm huỷ listener cũ, không thì nó vẫn sống, vẫn nhận
+   dữ liệu và VẪN TÍNH TIỀN ĐỌC.
+   ========================================================================== */
+const NGAY_TAB = { weigh: 1, report: 3 };   // Công nợ/Cài đặt = đầy đủ
+
+/* Số ngày phiếu cân cần tải, theo quyền tài khoản.
+   V1.12.4 — SỬA LỖI CỦA V1.12.3:
+   Bộ lắng nghe gắn NGAY KHI KẾT NỐI XONG, tức TRƯỚC lúc đăng nhập. Lúc đó
+   currentUser còn null. Bản V1.12.3 cho `can2` trả true khi chưa đăng nhập
+   -> mọi máy đều tải ĐẦY ĐỦ 39.000 phiếu ở màn chờ, rồi mới đăng nhập và
+   mới thu hẹp — nhưng đã tải xong rồi, MUỘN MẤT. Máy cân không được lợi gì.
+   Nay đảo ngược: chưa biết là ai thì tải TỐI THIỂU (1 ngày). Đăng nhập xong
+   applyCurrentUserPermissions -> ganLaiListenerNeuCan() sẽ nới ra theo quyền.
+   Người cân: 1 ngày -> 1 ngày, không tải lại gì.
+   Máy chủ:   1 ngày -> đầy đủ, tải thêm phần còn thiếu sau khi đăng nhập. */
+function soNgayCanTai(){
+  // Máy chưa thiết lập tài khoản nào -> không có gì để phân quyền, tải đầy đủ
+  if(!staffUsers.length) return 0;
+  if(!currentUser) return NGAY_TAB.weigh;               // chưa đăng nhập: tải ít nhất
+  if(can2('debt') || can2('config')) return 0;         // 0 = không giới hạn
+  if(can2('report')) return NGAY_TAB.report;
+  return NGAY_TAB.weigh;
+}
+function can2(tab){
+  if(!currentUser) return false;    // xem chú thích ở soNgayCanTai
+  const p = currentUser.permissions || {};
+  return !!p[tab];
+}
+// Mốc dateKey nhỏ nhất cần tải
+function mocTaiPhieu(){
+  const n = soNgayCanTai();
+  if(!n) return null;                                    // đầy đủ
+  const dk = (document.getElementById('weighDate') && document.getElementById('weighDate').value) || todayKey();
+  const d = new Date(dk + 'T00:00:00');
+  d.setDate(d.getDate() - (n - 1));
+  const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+  let moc = y + '-' + m + '-' + day;
+
+  // Người dùng chọn khoảng ngày RỘNG HƠN ở tab Báo cáo thì phải nới mốc,
+  // không thì báo cáo THIẾU dữ liệu mà không báo lỗi gì — nguy hiểm hơn chậm.
+  [ 'prodReportFrom', 'pivotDate' ].forEach(id=>{
+    const el = document.getElementById(id);
+    const v = el && el.value;
+    if(v && v < moc) moc = v;
+  });
+  return moc;
+}
+let mocDangTai = undefined;   // mốc của listener weighings hiện tại
+
 function attachRealtimeListeners(){
   // Dọn listener cũ (nếu gọi lại)
   firestoreListeners.forEach(unsub=>unsub());
   firestoreListeners = [];
+  mocDangTai = mocTaiPhieu();
 
   Object.keys(COLLECTIONS).forEach(name=>{
-    const unsub = fsDb.collection(name).onSnapshot(qs=>{
+    let ref = fsDb.collection(name);
+    // Chỉ giới hạn kho phiếu cân — các kho khác đều nhẹ, tải hết
+    if(name === 'weighings' && mocDangTai) ref = ref.where('dateKey', '>=', mocDangTai);
+    const unsub = ref.onSnapshot(qs=>{
       // Server là bản chuẩn — thay thẳng. Firestore đã tự gộp sẵn
       // các bản ghi máy này vừa ghi mà chưa kịp lên server.
       // Server là bản chuẩn — thay thẳng.
@@ -5755,35 +5939,6 @@ function doSucChua(){
   wrap.innerHTML = h;
 }
 
-/* V1.11.6 — Đối chiếu gọn cho người cân, đặt ở tab Cân tôm.
-   CHỈ XEM, không có nút gửi lại — gửi lại có thể làm sống lại phiếu người
-   khác đã cố ý xoá, nên để dành cho người có quyền vào Cài đặt. */
-function doiChieuNhanhTabCan(){
-  const el = document.getElementById('ktNhanhKetQua');
-  if(!el) return;
-  const dk = (document.getElementById('weighDate') && document.getElementById('weighDate').value) || todayKey();
-  if(soMayHong){
-    el.innerHTML = '<div style="background:#FFF8E8;border:1px solid #F0DCB0;border-radius:7px;padding:8px 10px;color:#7A5A12;">Máy này không dùng được Sổ máy nên chưa đối chiếu được.</div>';
-    return;
-  }
-  const kq = doiChieuChiTiet(dk);
-  if(!kq.soMay){
-    el.innerHTML = '<div class="muted">Sổ máy chưa có phiếu nào của ngày ' + ngayVN(dk) + '.</div>';
-    return;
-  }
-  if(!kq.thieu.length){
-    el.innerHTML = '<div style="background:#E9F7EF;border:1px solid #B7E3C9;border-radius:7px;padding:8px 10px;color:#1E6B48;font-weight:600;">'
-      + '✓ Sổ máy khớp server · ' + kq.soMay.toLocaleString('en-US') + ' / ' + kq.server.toLocaleString('en-US')
-      + ' phiếu · kiểm lúc ' + gioNgan(Date.now()) + '</div>';
-    return;
-  }
-  const kg = kq.thieu.reduce((a,x)=>a + (Number(x.k)||0), 0);
-  el.innerHTML = '<div style="background:#FDECEA;border:1px solid #F0C9C2;border-radius:7px;padding:9px 11px;color:#8E2018;font-weight:700;">'
-    + '⚠ Sổ máy ' + kq.soMay.toLocaleString('en-US') + ' · Server ' + kq.server.toLocaleString('en-US')
-    + ' — THIẾU ' + kq.thieu.length + ' PHIẾU (' + fmtKg(kg) + ' KG)'
-    + '<div style="font-weight:400;font-size:11.5px;margin-top:5px;">Bấm Xuất Excel để giữ bản cứng, rồi báo người quản lý xử lý trong Cài đặt.</div></div>';
-}
-
 function doiChieuTay(){
   const el = document.getElementById('doiChieuKetQua');
   const dk = (document.getElementById('doiChieuNgay').value) || todayKey();
@@ -5906,29 +6061,68 @@ function thuGuiLaiKet(){
    V1.11.1 — XUẤT FILE CHI TIẾT (Excel)
    Cột: Mã cân · Thời gian · Mã NV · Nhân viên · Mã hàng · KG · Người cân
    ========================================================================== */
+/* V1.12.2 — File Excel GỘP CẢ HAI NGUỒN.
+   Trước đây chỉ xuất từ `weighings` (dữ liệu server), nên khi có sự cố thì
+   file ra vẫn THIẾU đúng những phiếu chưa lên — tức là vô dụng đúng lúc cần
+   nhất. Sổ máy giữ được phiếu đó nhưng KHÔNG CÓ ĐƯỜNG NÀO LẤY RA:
+     - Máy chủ vào được Cài đặt nhưng sổ trống (không cân)
+     - Máy cân có sổ đầy nhưng công nhân không vào được Cài đặt
+   Nay gộp luôn vào nút Xuất Excel ở tab Cân tôm — công nhân chỉ cần nhớ
+   MỘT nút. Phiếu chỉ có trong sổ máy được đánh dấu ở cột cuối. */
 function dungBangChiTiet(dateKey){
   const dk = dateKey || todayKey();
-  const rows = weighings.filter(w=>w.dateKey === dk)
-                        .slice().sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
-  const empMap = {}; employees.forEach(e=>{ empMap[e.id] = e; });
+  const empMap = {};  employees.forEach(e=>{ empMap[e.id] = e; });
+  const empByCode = {}; employees.forEach(e=>{ empByCode[e.code] = e; });
   const prodMap = {}; products.forEach(x=>{ prodMap[x.id] = x; });
-  const aoa = [['Mã cân','Thời gian','Mã NV','Nhân viên','Mã hàng','KG','Người cân']];
-  let tongKg = 0;
-  rows.forEach((w, i)=>{
+
+  // 1) Phiếu từ server
+  const coTrenServer = new Set();
+  const rows = weighings.filter(w=>w.dateKey === dk).map(w=>{
+    coTrenServer.add(String(w.id));
     const e = empMap[w.employeeId], p = prodMap[w.productId];
-    tongKg += Number(w.weightKg) || 0;
-    aoa.push([
-      i + 1,
-      gioNgan(w.createdAt),
-      (e && e.code) || w.employeeCode || '',
-      (e && e.name) || '',
-      (p && p.code) || '',
-      Number(w.weightKg) || 0,
-      w.byUserName || ''
-    ]);
+    return {
+      t: w.createdAt || 0,
+      maNV: (e && e.code) || w.employeeCode || '',
+      ten: (e && e.name) || '',
+      maHang: (p && p.code) || '',
+      kg: Number(w.weightKg) || 0,
+      nguoiCan: w.byUserName || '',
+      chuaLen: ''
+    };
   });
-  aoa.push(['TỔNG — ' + rows.length + ' phiếu','','','','', Number(tongKg.toFixed(3)), '']);
-  return { aoa, soPhieu: rows.length, dk };
+
+  // 2) Phiếu CHỈ có trong Sổ máy (chưa lên server) — đây mới là phần cứu dữ liệu
+  let soChuaLen = 0;
+  if(!soMayHong){
+    const trongSo = soMay.filter(x=>x.d === dk && !coTrenServer.has(String(x.i)));
+    trongSo.forEach(x=>{
+      soChuaLen++;
+      const e = empByCode[x.e];
+      const p = prodMap[x.p];
+      rows.push({
+        t: Number(x.t) || 0,
+        maNV: x.e || '',
+        ten: (e && e.name) || '',
+        maHang: (p && p.code) || '',
+        kg: Number(x.k) || 0,
+        nguoiCan: '',
+        chuaLen: 'CHƯA LÊN SERVER'
+      });
+    });
+  }
+
+  rows.sort((a,b)=>a.t - b.t);
+
+  const aoa = [['Mã cân','Thời gian','Mã NV','Nhân viên','Mã hàng','KG','Người cân','Ghi chú']];
+  let tongKg = 0;
+  rows.forEach((r, i)=>{
+    tongKg += r.kg;
+    aoa.push([ i + 1, gioNgan(r.t), r.maNV, r.ten, r.maHang, r.kg, r.nguoiCan, r.chuaLen ]);
+  });
+  const nhan = 'TỔNG — ' + rows.length + ' phiếu'
+             + (soChuaLen ? ' (trong đó ' + soChuaLen + ' phiếu CHƯA LÊN SERVER)' : '');
+  aoa.push([nhan,'','','','', Number(tongKg.toFixed(3)), '', '']);
+  return { aoa, soPhieu: rows.length, dk, soChuaLen };
 }
 
 function xuatFileChiTiet(dateKey){
