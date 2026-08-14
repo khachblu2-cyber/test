@@ -428,6 +428,23 @@
            THỨ TỰ — cái gì chạy trước lúc đăng nhập thì chưa biết người dùng
            là ai. Mặc định lúc chưa biết phải là mức AN TOÀN NHẤT (ít nhất),
            không phải mức rộng nhất.
+           (md5 976be3f918bce89a6c606cc36a011224)
+  V1.12.5  CHỐT CHẶN SAO LƯU khi máy bị giới hạn số ngày.
+           Từ V1.12.3 máy chỉ tải 1-3 ngày phiếu. fullBackupExport lấy thẳng
+           mảng `weighings` trong bộ nhớ -> máy bị giới hạn xuất ra file CHỈ CÓ
+           1-3 NGÀY mà KHÔNG BÁO GÌ. Đúng lại chuyện file 878 KB hôm 12/08,
+           nhưng lần này do chính việc tối ưu tải gây ra.
+           Nay kiểm tra CẢ HAI điều kiện:
+             Chốt 1: daNhanGoiServer — đã tải xong chưa
+             Chốt 2: soNgayCanTai() > 0 — có đang bị giới hạn ngày không
+           Nếu bị giới hạn thì hỏi, đồng ý thì taiDayDuRoiSaoLuu():
+             - Bật cờ dangTaiDayDuDeSaoLuu -> soNgayCanTai() trả 0
+             - Gắn lại listener (đầy đủ), chờ tới khi số phiếu ngừng tăng
+               (3 lần liên tiếp không đổi) hoặc quá 30 giây
+             - Xuất file, rồi THU LẠI mức nhẹ sau 1,5 giây
+           BÀI HỌC: mỗi khi giới hạn dữ liệu tải về, phải rà MỌI hàm đọc thẳng
+           từ mảng trong bộ nhớ (weighings, payments...) — sao lưu, xuất Excel,
+           báo cáo, đối chiếu. Chúng đều ngầm giả định "dữ liệu trong máy là đủ".
 
 ================================================================================
   HẾT PHẦN BÀN GIAO
@@ -841,7 +858,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">V1.12.4</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">V1.12.5</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -2294,13 +2311,58 @@ async function chayDonNhanVien(){
     </div>`;
 }
 
-function fullBackupExport(){
-  // V1.11.6 — CHẶN khi dữ liệu chưa tải xong.
-  // Trước đây bấm lúc app mới mở ra file 878 KB thay vì 14,7 MB — thiếu gần
-  // hết phiếu cân, mà nhìn tên file không biết được.
+/* V1.12.5 — CHỐT CHẶN THỨ HAI CHO SAO LƯU.
+   Từ V1.12.3 máy chỉ tải 1-3 ngày phiếu tuỳ quyền. fullBackupExport lấy thẳng
+   mảng `weighings` trong bộ nhớ -> máy bị giới hạn sẽ xuất ra file CHỈ CÓ
+   1-3 NGÀY mà không báo gì. Đúng lại chuyện file 878 KB, nhưng do chính việc
+   tối ưu tải gây ra.
+   Nay kiểm tra CẢ HAI điều kiện trước khi cho xuất. */
+let dangTaiDayDuDeSaoLuu = false;   // tạm nới listener về đầy đủ
+
+/* Tạm nới listener về đầy đủ, chờ tải xong rồi sao lưu, sau đó thu lại.
+   Không để nguyên mức đầy đủ vì máy cân cần nhẹ. */
+async function taiDayDuRoiSaoLuu(){
+  const truoc = weighings.length;
+  dangTaiDayDuDeSaoLuu = true;
+  attachRealtimeListeners();
+
+  // Chờ tới khi số phiếu ngừng tăng (tải xong) hoặc quá 30 giây
+  const batDau = Date.now();
+  let lanCuoi = truoc, yen = 0;
+  while(Date.now() - batDau < 30000){
+    await new Promise(r=>setTimeout(r, 800));
+    if(weighings.length === lanCuoi){ yen++; if(yen >= 3) break; }
+    else { yen = 0; lanCuoi = weighings.length; }
+  }
+  if(weighings.length <= truoc){
+    alert('Không tải thêm được dữ liệu cũ. Thử lại khi mạng ổn hơn,\n'
+        + 'hoặc dùng máy có quyền Công nợ/Cài đặt để sao lưu.');
+    dangTaiDayDuDeSaoLuu = false;
+    attachRealtimeListeners();
+    return;
+  }
+  fullBackupExport();                    // giờ đã đầy đủ, chốt 2 sẽ cho qua
+  dangTaiDayDuDeSaoLuu = false;
+  setTimeout(attachRealtimeListeners, 1500);   // thu lại mức nhẹ
+}
+
+async function fullBackupExport(){
+  // Chốt 1 — dữ liệu đã tải xong chưa
   if(!daNhanGoiServer){
     alert('⏳ Dữ liệu chưa tải xong từ server.\n\nChờ vài giây rồi sao lưu lại — '
         + 'sao lưu lúc này sẽ THIẾU phiếu cân.');
+    return;
+  }
+  // Chốt 2 — máy này có đang bị giới hạn số ngày không
+  const soNgay = soNgayCanTai();
+  if(soNgay > 0 && !dangTaiDayDuDeSaoLuu){
+    const dong = confirm(
+      '⚠️ Máy này chỉ tải ' + soNgay + ' ngày phiếu gần nhất cho nhẹ.\n'
+    + 'Sao lưu bây giờ sẽ THIẾU dữ liệu cũ.\n\n'
+    + 'Bấm OK để tải đầy đủ rồi sao lưu (mất 10-20 giây),\n'
+    + 'hoặc Huỷ và dùng máy có quyền Công nợ/Cài đặt.');
+    if(!dong) return;
+    await taiDayDuRoiSaoLuu();
     return;
   }
   const payload = { employees, products, weighings, openingBalances, payments, overtimeDays, companyInfo, appOptions, exportedAt: new Date().toISOString() };
@@ -5563,6 +5625,7 @@ const NGAY_TAB = { weigh: 1, report: 3 };   // Công nợ/Cài đặt = đầy �
    Người cân: 1 ngày -> 1 ngày, không tải lại gì.
    Máy chủ:   1 ngày -> đầy đủ, tải thêm phần còn thiếu sau khi đăng nhập. */
 function soNgayCanTai(){
+  if(dangTaiDayDuDeSaoLuu) return 0;                   // đang tạm nới để sao lưu
   // Máy chưa thiết lập tài khoản nào -> không có gì để phân quyền, tải đầy đủ
   if(!staffUsers.length) return 0;
   if(!currentUser) return NGAY_TAB.weigh;               // chưa đăng nhập: tải ít nhất
