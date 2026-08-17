@@ -1,7 +1,7 @@
 <!--
 ================================================================================
   BÀN GIAO — APP CÂN TÔM · BẢN CÂN (chỉ để cân)
-  Phiên bản: CÂN V1.0    Ngày: 17/08/2026
+  Phiên bản: CÂN V1.2    Ngày: 17/08/2026
   Link: khachblu2-cyber.github.io/cantom/
 --------------------------------------------------------------------------------
   ĐÂY LÀ BẢN RÚT GỌN, cắt ra từ bản đầy đủ V1.13.0
@@ -111,6 +111,44 @@
   4. F5 từng máy, kiểm tra thanh xanh hiện "CÂN V1.0"
   Làm ngược thì máy công nợ mất chỗ vào.
 
+■ 12. LỊCH SỬ PHIÊN BẢN BẢN CÂN
+  CÂN V1.0  Cắt ra từ V1.13.0. Xoá tab Công nợ / Chốt & In / Cài đặt, nút Sao
+            lưu. Listener weighings dùng .where('dateKey','>=', ngày đang xem).
+            Thêm 22 chốt an toàn cho hàm dùng DOM đã xoá.
+            (md5 b2d0dd0da970c975e9b0c0bc4eb84024)
+  CÂN V1.1  VÁ MÀN CHỜ ĐỨNG. Triệu chứng: hiện "Đang tải phiếu cân… 1.043 phiếu"
+            rồi ĐỨNG YÊN, phải đợi hết 31 giây mới vào được dù dữ liệu đã về.
+            Nguyên nhân: màn chờ đợi cờ daNhanGoiServer, cờ này chỉ bật khi kho
+            weighings nhận gói có fromCache === false. Nhưng listener dùng
+            .where(...) là QUERY MỚI — Firestore bắn gói TỪ BỘ NHỚ ĐỆM trước
+            (fromCache=true) rồi mới bắn gói server. Gói server tới chậm hoặc
+            không tới thì cờ KHÔNG BAO GIỜ BẬT.
+            Vá: có gói phiếu cân về rồi (dù từ bộ nhớ đệm) thì hẹn 1,5 giây rồi
+            mở cổng; gói server tới trong lúc đó thì huỷ hẹn. Rút SPLASH_QUA_HAN
+            25s -> 8s (chỉ tải 1 ngày, không cần chờ lâu).
+            Kết quả: cảnh trong ảnh 31s -> 1,9s. Mất mạng hoàn toàn 31s -> 12s.
+            ĐÃ ĐỐI CHIẾU: 28 hàm động tới dữ liệu/tiền KHÔNG ĐỔI MỘT CHỮ,
+            277 hàm còn đủ 277. Chỉ đụng đúng phần màn chờ.
+            BÀI HỌC: bản vá này vốn đã có ở V1.12.7, nhưng bản cân dựng từ
+            V1.13.0 (nhánh khác) nên KHÔNG kế thừa. Khi cắt file từ nhánh cũ,
+            phải rà lại xem có bản vá nào ở nhánh khác cần chép sang không.
+            (md5 26c7cbeaacf4e297715ff5e9deb8016b)
+  CÂN V1.2  ĐỔI GIAO DIỆN SANG XANH LÁ để phân biệt với bản quản lý (xanh dương).
+            Nhìn thanh trên cùng là biết ngay đang ở link nào.
+            Bảng đổi màu:
+              #1D5FAE -> #1E7A52  (xanh chính)
+              #123E77 -> #0F4A31  (xanh đậm)
+              #2E7BD1 -> #2E9E6B  (xanh nhạt)
+              #0E3667 -> #0B3B27  (nền màn đăng nhập / màn chờ)
+              #EAF1FB -> #E9F5EE · #C9DDF5 -> #BFE3CD · #D3E4F8 -> #C9E8D6
+              #C6DCF6 -> #BFE3CD · #9FC2E8 -> #A6D9BC (các sắc nhạt)
+              #7FB2EA -> #7FD3A8 · #9CB8DE -> #9CCFB4 · #B7D4F5 -> #B7E8CD
+            GIỮ NGUYÊN #7FB2E5 và #C7A6E8 — đây là BẢNG MÀU CHỌN CHO MÃ HÀNG,
+            đổi sẽ làm màu mã hàng khác với bản quản lý.
+            Đã đổi cả #userPickerOverlay (màn đăng nhập) và #appSplash (màn chờ).
+            ĐÃ ĐỐI CHIẾU: 62 dòng khác — 60 dòng là mã màu, 2 dòng là số phiên
+            bản. 277 hàm còn đủ 277, KHÔNG hàm dữ liệu nào đổi.
+
 ================================================================================
 -->
 <!DOCTYPE html>
@@ -135,7 +173,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@500;600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
   :root{
-    --ink:#152238; --paper:#F1F4F8; --card:#FFFFFF; --blue:#1D5FAE; --blue-dk:#123E77;
+    --ink:#152238; --paper:#F1F4F8; --card:#FFFFFF; --blue:#1E7A52; --blue-dk:#0F4A31;
     --amber:#DB9B2C; --rust:#C0392B; --moss:#2F7D5A; --line:#DDE3EC; --muted:#64748B;
   }
   *{box-sizing:border-box;}
@@ -153,11 +191,11 @@
   .brand-row{display:flex;align-items:center;gap:10px;padding:7px 12px 5px;border-bottom:1px solid rgba(255,255,255,.16);}
   .brand{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;justify-content:center;}
   .brand-title{font-size:15.5px;font-weight:700;color:#fff;line-height:1.15;white-space:nowrap;}
-  .brand-status{font-size:10px;color:#C6DCF6;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .brand-status{font-size:10px;color:#BFE3CD;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .brand-user{flex:0 0 auto;display:flex;align-items:center;gap:7px;}
-  .brand-user > span{color:#D3E4F8;font-size:11.5px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
+  .brand-user > span{color:#C9E8D6;font-size:11.5px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis;}
   .brand-user button{background:none;border:1px solid rgba(255,255,255,.4);color:#fff;font-size:10.5px;padding:3px 9px;border-radius:6px;cursor:pointer;}
-  .brand-user .ver{font-size:9.5px;color:#9FC2E8;}
+  .brand-user .ver{font-size:9.5px;color:#A6D9BC;}
   /* ===== HÀNG THAO TÁC TRÊN CÙNG ===== */
   /* Cảnh báo server từ chối ghi */
   .ver-badge{color:#FFD98A;font-weight:700;font-size:10.5px;}
@@ -184,23 +222,23 @@
   .daystat .cell{padding:5px 13px;text-align:center;display:flex;flex-direction:column;justify-content:center;min-width:64px;}
   .daystat .cell + .cell{border-left:1px solid rgba(255,255,255,.22);}
   .daystat .v{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:700;color:#fff;line-height:1.1;}
-  .daystat .l{font-size:8.5px;letter-spacing:.7px;text-transform:uppercase;color:#B7D4F5;margin-top:2px;}
+  .daystat .l{font-size:8.5px;letter-spacing:.7px;text-transform:uppercase;color:#B7E8CD;margin-top:2px;}
   .action-row .f-date{flex:0 0 148px;}
   .action-row .f-kg{flex:0 0 118px;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:700;padding:6px 12px;}
   .btn-form{flex:0 0 auto;background:#fff;border:none;border-radius:10px;padding:5px 13px;font-size:12.5px;font-weight:700;
     color:var(--blue);cursor:pointer;font-family:inherit;line-height:1.25;white-space:nowrap;}
-  .btn-nhap{flex:0 0 auto;background:linear-gradient(150deg,#2E7BD1,#123E77);border:1px solid rgba(255,255,255,.35);
+  .btn-nhap{flex:0 0 auto;background:linear-gradient(150deg,#2E9E6B,#0F4A31);border:1px solid rgba(255,255,255,.35);
     border-radius:10px;padding:0 24px;color:#fff;font-size:17px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.4px;}
   .btn-nhap:active{transform:scale(.98);}
   #activeProdBar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:0 12px 7px;background:var(--blue);
-    color:#C6DCF6;font-size:12.5px;}
+    color:#BFE3CD;font-size:12.5px;}
   #activeProdBar b{color:#fff;font-weight:700;}
 
   /* ===== CỘT CHI TIẾT BÊN PHẢI ===== */
   .detail-col{flex:0 0 390px;min-width:0;position:sticky;top:calc(var(--topH,150px) + 10px);
     max-height:calc(100vh - var(--topH,150px) - 20px);overflow-y:auto;}
   .dcard{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;}
-  .dhead{background:#EAF1FB;padding:7px 12px;border-bottom:1px solid var(--line);}
+  .dhead{background:#E9F5EE;padding:7px 12px;border-bottom:1px solid var(--line);}
   .dhead .n{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--blue-dk);line-height:1.2;}
   .dhead .c{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--muted);margin-top:2px;}
   .dhead.one{padding:9px 12px;}
@@ -212,13 +250,13 @@
   table.dtb th.r,table.dtb td.r{text-align:right;}
   table.dtb td{padding:8px 9px;border-bottom:1px solid var(--line);}
   table.dtb tr.item{cursor:pointer;}
-  table.dtb tr.item:active td{background:#EAF1FB;}
+  table.dtb tr.item:active td{background:#E9F5EE;}
   table.dtb td.sz{font-weight:700;}
   table.dtb td.kg{font-family:'IBM Plex Mono',monospace;font-weight:700;}
   table.dtb td.mn{font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--blue);font-size:12.5px;}
   table.dtb tr.sub td{background:#FBFCFE;font-size:11.5px;color:var(--muted);padding:5px 9px 5px 20px;}
-  table.dtb tr.tot td{background:#EAF1FB;font-weight:700;border-bottom:none;}
-  .dfoot{padding:9px 12px;background:#EAF1FB;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline;}
+  table.dtb tr.tot td{background:#E9F5EE;font-weight:700;border-bottom:none;}
+  .dfoot{padding:9px 12px;background:#E9F5EE;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline;}
   .dfoot .lbl{font-size:11.5px;color:var(--muted);}
   .dfoot .val{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--blue);}
 
@@ -243,7 +281,7 @@
   .slip tr.sum td{font-weight:700;}
   .slip .s-words{font-size:12.5px;margin-top:8px;}
   .tab-btn{white-space:nowrap;}
-  .tab-btn{flex:1 0 auto;min-width:96px;display:flex;align-items:center;justify-content:center;gap:6px;padding:15px 10px;border:none;border-bottom:2px solid transparent;background:transparent;color:#D3E4F8;font-weight:600;font-size:15px;cursor:pointer;}
+  .tab-btn{flex:1 0 auto;min-width:96px;display:flex;align-items:center;justify-content:center;gap:6px;padding:15px 10px;border:none;border-bottom:2px solid transparent;background:transparent;color:#C9E8D6;font-weight:600;font-size:15px;cursor:pointer;}
   .tab-btn.active{color:#fff;border-bottom-color:#FFFFFF;}
   .app-header{padding:20px 18px 10px;}
   .app-title{font-size:22px;font-weight:700;color:var(--ink);}
@@ -269,7 +307,7 @@
   .row > *{flex:1;}
   .list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);}
   .list-item:last-child{border-bottom:none;}
-  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;background:#EAF1FB;color:var(--blue);font-family:'IBM Plex Mono',monospace;}
+  .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;background:#E9F5EE;color:var(--blue);font-family:'IBM Plex Mono',monospace;}
   .muted{color:var(--muted);}
   .amount{font-family:'IBM Plex Mono',monospace;font-weight:600;}
   .empty-state{text-align:center;padding:28px 16px;color:var(--muted);font-size:13.5px;}
@@ -288,7 +326,7 @@
   .weigh-amt-sm{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:13.5px;color:var(--blue);}
   .weigh-detail-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0 6px 16px;border-top:1px dashed var(--line);font-size:12.5px;}
   .icon-del{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;}
-  .totalbar{background:#EAF1FB;border:1px solid #C9DDF5;border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin:10px 0;}
+  .totalbar{background:#E9F5EE;border:1px solid #BFE3CD;border-radius:12px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin:10px 0;}
   .totalbar .lbl{font-weight:700;font-size:14px;}
   .totalbar .val{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:17px;color:var(--blue-dk);}
   .section-tab{display:flex;gap:6px;margin-bottom:12px;}
@@ -297,7 +335,7 @@
   /* ===== MÀN HÌNH ĐĂNG NHẬP ===== */
   #userPickerOverlay{
     position:fixed;inset:0;z-index:997;overflow-y:auto;
-    background:linear-gradient(160deg,#0E3667 0%,#1D5FAE 55%,#2E7BD1 100%);
+    background:linear-gradient(160deg,#0B3B27 0%,#1E7A52 55%,#2E9E6B 100%);
     display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 40px;
   }
   .lg-shell{width:100%;max-width:380px;}
@@ -309,12 +347,12 @@
     box-shadow:0 8px 26px rgba(6,26,52,.34);
   }
   .lg-title{font-family:'Fraunces',Georgia,serif;font-size:29px;font-weight:700;line-height:1.15;margin-top:5px;}
-  .lg-sub{font-size:13px;color:#C6DCF6;margin-top:7px;}
+  .lg-sub{font-size:13px;color:#BFE3CD;margin-top:7px;}
   .lg-card{background:#fff;border-radius:20px;padding:18px 16px 20px;box-shadow:0 18px 44px rgba(5,22,46,.32);}
   .lg-label{font-size:11.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
   #appSplash{
     position:fixed;inset:0;z-index:998;
-    background:linear-gradient(160deg,#0E3667 0%,#1D5FAE 55%,#2E7BD1 100%);
+    background:linear-gradient(160deg,#0B3B27 0%,#1E7A52 55%,#2E9E6B 100%);
     display:flex;align-items:center;justify-content:center;padding:24px;
   }
   .lg-input{
@@ -333,12 +371,12 @@
   .lg-err{color:var(--rust);font-size:12.5px;text-align:center;min-height:18px;font-weight:600;margin-bottom:4px;}
   .lg-go{
     width:100%;padding:15px 0;border:none;border-radius:13px;cursor:pointer;
-    background:linear-gradient(150deg,#2E7BD1,#123E77);color:#fff;
+    background:linear-gradient(150deg,#2E9E6B,#0F4A31);color:#fff;
     font-size:16px;font-weight:700;font-family:'Inter',sans-serif;letter-spacing:.3px;
     box-shadow:0 6px 18px rgba(18,62,119,.3);
   }
   .lg-go:active{transform:scale(.985);}
-  .lg-go:focus-visible{outline:3px solid #7FB2EA;outline-offset:2px;}
+  .lg-go:focus-visible{outline:3px solid #7FD3A8;outline-offset:2px;}
   .lg-shake{animation:lgShake .34s;}
   @keyframes lgShake{
     0%,100%{transform:translateX(0);} 20%{transform:translateX(-8px);}
@@ -381,7 +419,7 @@
   .summary-line{display:flex;justify-content:space-between;font-size:13px;padding:3px 0;}
   .summary-line.total{border-top:1px dashed var(--line);margin-top:6px;padding-top:8px;font-weight:700;}
   .emp-chip{padding:11px 12px;border-radius:10px;border:2px solid var(--line);background:#fff;cursor:pointer;margin-bottom:6px;}
-  .emp-chip.selected{border-color:var(--blue);background:#EAF1FB;}
+  .emp-chip.selected{border-color:var(--blue);background:#E9F5EE;}
   .emp-chip.highlighted{background:#FFF6E0;border-color:var(--amber);}
   .emp-chip .c-code{font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted);}
   .emp-chip .c-name{font-size:16px;font-weight:700;}
@@ -452,17 +490,17 @@
   .report-print-footer{display:flex;justify-content:space-between;margin-top:40px;font-size:12.5px;text-align:center;}
   .report-print-footer div{width:40%;}
   .id-card-page{display:flex;align-items:center;justify-content:center;padding:20px;}
-  .id-card{width:85.6mm;height:53.98mm;border-radius:3mm;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.15);font-family:'Inter',sans-serif;background:#fff;border:0.3mm solid #C9DDF5;display:flex;flex-direction:column;}
-  .id-card-top{background:linear-gradient(135deg,#1D5FAE,#123E77);color:#fff;padding:3mm 4mm 2mm;flex-shrink:0;}
+  .id-card{width:85.6mm;height:53.98mm;border-radius:3mm;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.15);font-family:'Inter',sans-serif;background:#fff;border:0.3mm solid #BFE3CD;display:flex;flex-direction:column;}
+  .id-card-top{background:linear-gradient(135deg,#1E7A52,#0F4A31);color:#fff;padding:3mm 4mm 2mm;flex-shrink:0;}
   .id-card-co{font-weight:700;font-size:3.1mm;line-height:1.25;}
   .id-card-sub{font-size:2mm;letter-spacing:0.4mm;opacity:.85;margin-top:0.6mm;}
   .id-card-body{display:flex;gap:3mm;padding:2.5mm 4mm;align-items:flex-start;flex:1;min-height:0;}
-  .id-card-photo{width:16mm;height:21mm;border-radius:1.5mm;overflow:hidden;border:0.4mm solid #C9DDF5;flex-shrink:0;background:#EAF1FB;}
+  .id-card-photo{width:16mm;height:21mm;border-radius:1.5mm;overflow:hidden;border:0.4mm solid #BFE3CD;flex-shrink:0;background:#E9F5EE;}
   .id-card-photo img{width:100%;height:100%;object-fit:cover;}
-  .id-card-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:7mm;color:#9CB8DE;}
+  .id-card-photo-empty{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:7mm;color:#9CCFB4;}
   .id-card-info{flex:1;padding-top:0.5mm;min-width:0;overflow:hidden;}
-  .id-card-name{font-weight:700;font-size:3.4mm;color:#123E77;line-height:1.2;}
-  .id-card-code{font-family:'IBM Plex Mono',monospace;font-size:2.5mm;color:#1D5FAE;font-weight:700;margin-top:1.2mm;}
+  .id-card-name{font-weight:700;font-size:3.4mm;color:#0F4A31;line-height:1.2;}
+  .id-card-code{font-family:'IBM Plex Mono',monospace;font-size:2.5mm;color:#1E7A52;font-weight:700;margin-top:1.2mm;}
   .id-card-line{font-size:2.2mm;color:#555;margin-top:0.8mm;line-height:1.3;}
   #idcard-barcode,#previewBarcode{display:block;width:100%;height:9mm;padding:0 4mm 2mm;flex-shrink:0;}
   /* ===== PHIEU CHI - kieu bill 80mm dat trong trang A4 (giong phan mem cu) ===== */
@@ -507,12 +545,12 @@
   table.pivot-table th{background:var(--blue);color:#fff;position:sticky;top:0;}
   table.pivot-table td:first-child, table.pivot-table th:first-child{text-align:left;position:sticky;left:0;background:#fff;z-index:2;}
   table.pivot-table th:first-child{background:var(--blue);z-index:3;}
-  table.pivot-table tr.total-row td{font-weight:700;background:#EAF1FB;}
+  table.pivot-table tr.total-row td{font-weight:700;background:#E9F5EE;}
   table.debt-report-table{border-collapse:collapse;width:100%;font-size:13px;}
   table.debt-report-table th, table.debt-report-table td{border:1px solid var(--line);padding:6px 8px;text-align:right;}
   table.debt-report-table th{background:var(--blue);color:#fff;}
   table.debt-report-table td:nth-child(2){text-align:left;}
-  table.debt-report-table tr.total-row td{font-weight:700;background:#EAF1FB;}
+  table.debt-report-table tr.total-row td{font-weight:700;background:#E9F5EE;}
 </style>
 </head>
 <body>
@@ -521,7 +559,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">CÂN V1.0</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">CÂN V1.2</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -568,7 +606,7 @@
     <span>Đang chọn:</span> <b id="activeProdLabel">— chưa chọn mã hàng —</b>
     <span style="margin-left:auto;">Thành tiền: <b id="wPreview">0 đ</b></span>
   </div>
-  <div id="weighDateNote" class="hidden" style="padding:0 12px 6px;background:var(--blue);color:#D3E4F8;">🔒 Chỉ cân được cho ngày hôm nay</div>
+  <div id="weighDateNote" class="hidden" style="padding:0 12px 6px;background:var(--blue);color:#C9E8D6;">🔒 Chỉ cân được cho ngày hôm nay</div>
 </div>
 
 <!-- ============ TAB: CÂN TÔM ============ -->
@@ -961,6 +999,7 @@ function switchTab(tab){
 let tabDangMo = 'weigh';
 // ===== KHOÁ NHẬP =====
 function renderLockSection(){
+  if(!document.getElementById('lockHoursChk')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   document.getElementById('lockHoursChk').checked  = !!appOptions.lockHours;
   document.getElementById('lockWorkStart').value   = appOptions.workStart || '05:00';
   document.getElementById('lockWorkEnd').value     = appOptions.workEnd   || '19:00';
@@ -1053,6 +1092,7 @@ function renderDeviceList(){
 
 // ===== LỊCH SỬ TRUY XUẤT =====
 function filteredActivityLog(){
+  if(!document.getElementById('logUserFilter')) return [];   // BẢN CÂN: phần này đã xoá khỏi HTML
   const from = document.getElementById('logFrom')?.value || '';
   const to   = document.getElementById('logTo')?.value || '';
   const uid_ = document.getElementById('logUserFilter')?.value || '';
@@ -1105,6 +1145,7 @@ function vaoNgoPhieu(w){
   return ly;
 }
 function locLichSuCan(){
+  if(!document.getElementById('lscFrom')) return [];   // BẢN CÂN: phần này đã xoá khỏi HTML
   const f = (document.getElementById('lscFrom')?.value)||'';
   const t = (document.getElementById('lscTo')?.value)||'';
   const u = (document.getElementById('lscUser')?.value)||'';
@@ -1123,6 +1164,7 @@ function locLichSuCan(){
   }).sort((a,b)=>b.createdAt-a.createdAt);
 }
 function renderLichSuCan(){
+  if(!document.getElementById('lscWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const sel = document.getElementById('lscUser');
   if(sel){
     const cur = sel.value;
@@ -1299,6 +1341,7 @@ function saveOptions(){
 
 // ===== BẢO MẬT: KHOÁ PIN =====
 function updatePinStatusText(){
+  if(!document.getElementById('pinStatusText')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const pin = localStorage.getItem(PIN_KEY);
   document.getElementById('pinStatusText').textContent = pin ? "🔒 Đang bật khoá PIN" : "🔓 Chưa bật khoá PIN";
 }
@@ -1318,6 +1361,7 @@ function removeAppPin(){
 
 // ===== MÃ PIN BẢO VỆ XOÁ DANH MỤC =====
 function updateDeletePinStatusText(){
+  if(!document.getElementById('deletePinStatusText')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const pin = localStorage.getItem(DELETE_PIN_KEY);
   document.getElementById('deletePinStatusText').textContent = pin ? "🛡 Đang bật bảo vệ xoá" : "⚪ Chưa bật bảo vệ xoá";
 }
@@ -1904,7 +1948,7 @@ function showSplash(){
             Vào cân được ngay, nhưng dữ liệu chưa đủ.<br>
             <b>Chưa nên bấm Sao lưu lúc này — file sẽ thiếu.</b>
           </div>
-          <button onclick="boQuaManCho()" style="margin-top:10px;width:100%;background:#fff;color:#123E77;
+          <button onclick="boQuaManCho()" style="margin-top:10px;width:100%;background:#fff;color:#0F4A31;
                   border:none;border-radius:8px;padding:11px;font-size:13.5px;font-weight:700;">Vào cân ngay</button>
         </div>
       </div>
@@ -1918,7 +1962,9 @@ function showSplash(){
 
 // Biểu tượng cân điện tử (mặt cân + thân + màn hình số) — dùng chung cho màn chờ và đăng nhập
 let splashLucBatDau = 0, splashDongHo = null;
-const SPLASH_QUA_HAN = 25000;   // 25 giây thì cho vào cân dù chưa tải xong
+/* BẢN CÂN V1.1 — rút từ 25s xuống 8s. Chỉ tải 1 NGÀY phiếu (~2.700), về rất
+   nhanh, không cần chờ lâu như khi tải 40.000. */
+const SPLASH_QUA_HAN = 8000;
 
 function veManCho(){
   const msg = document.getElementById('splashMsg');
@@ -1947,8 +1993,10 @@ function boQuaManCho(){
 }
 let daBoQuaManCho = false;
 let daNhanGoiServer = false;   // đã nhận ít nhất một gói dữ liệu THẬT từ server
+let choMoCong = null;          // hẹn giờ mở cổng khi gói đến từ bộ nhớ đệm
 function hideSplash(){
   if(splashDongHo){ clearInterval(splashDongHo); splashDongHo = null; }
+  if(choMoCong){ clearTimeout(choMoCong); choMoCong = null; }
   const d = document.getElementById('appSplash');
   if(d) d.remove();
 }
@@ -3539,6 +3587,7 @@ function handlePayBarcodeScan(){
 }
 let payModalEmployeeId = null;
 function showPayableDaysModal(employeeId){
+  if(!document.getElementById('payBarcodeInput')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   payModalEmployeeId = employeeId;
   const emp = employees.find(e=>e.id===employeeId);
   if(!emp) return;
@@ -3577,6 +3626,7 @@ function showPayableDaysModal(employeeId){
   document.getElementById('payBarcodeInput').focus();
 }
 function closePayableDaysModal(){
+  if(!document.getElementById('payBarcodeInput')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   payModalEmployeeId = null;
   const overlay = document.getElementById('payModalOverlay');
   if(overlay) overlay.remove();
@@ -3645,6 +3695,7 @@ function recalcPayableAmount(){
 // ===== CHI TIỀN NHANH + IN BILL 80mm =====
 let billPrintLockUntil = 0;
 function confirmPaymentAndPrintBill(){
+  if(!document.getElementById('payBarcodeStatus')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   // Chan Enter/bam trung trong 2 giay - bo qua im lang, khong bao loi
   if(Date.now() < billPrintLockUntil) return;
   const employeeId = payModalEmployeeId;
@@ -3821,6 +3872,7 @@ function deleteOpening(id){
   renderDebtTab();
 }
 function renderOpeningList(){
+  if(!document.getElementById('openListWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const wrap = document.getElementById('openListWrap');
   if(openingBalances.length===0){ wrap.innerHTML = `<div class="empty-state">Chưa có số dư đầu kỳ nào</div>`; return; }
   const sorted = [...openingBalances].sort((a,b)=>b.createdAt-a.createdAt);
@@ -3851,6 +3903,7 @@ function deletePayment(id){
   renderDebtTab();
 }
 function renderPaymentList(){
+  if(!document.getElementById('payListWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const wrap = document.getElementById('payListWrap');
   if(payments.length===0){ wrap.innerHTML = `<div class="empty-state">Chưa có phiếu chi nào</div>`; return; }
   const sorted = [...payments].sort((a,b)=>b.createdAt-a.createdAt);
@@ -3887,6 +3940,7 @@ function payableBalance(employeeId){
   return totalOpeningBalance(employeeId) + totalEarnedAllTime(employeeId) - totalPaid(employeeId);
 }
 function renderDebtTab(){
+  if(!document.getElementById('payListWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   renderOpeningList();
   renderPaymentList();
 }
@@ -3901,6 +3955,7 @@ function clearDebtReportFilter(){
   renderDebtReport();
 }
 function buildDebtReportRows(){
+  if(!document.getElementById('reportFrom')) return [];   // BẢN CÂN: phần này đã xoá khỏi HTML
   const fromKey = document.getElementById('reportFrom')?.value;
   const toKey = document.getElementById('reportTo')?.value;
   const B = dungBangTraCuu();
@@ -3918,6 +3973,7 @@ function buildDebtReportRows(){
 let debtReportShowAll = false;
 function toggleDebtReportShowAll(){ debtReportShowAll = !debtReportShowAll; renderDebtReport(); }
 function renderDebtReport(){
+  if(!document.getElementById('debtReportWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const wrap = document.getElementById('debtReportWrap');
   if(employees.length===0){ wrap.innerHTML = `<div class="empty-state">Chưa có nhân viên nào</div>`; return; }
   const allRows = buildDebtReportRows()
@@ -3996,6 +4052,7 @@ function boDau(str){
 }
 
 function populateDetailEmployeeSelect(){
+  if(!document.getElementById('detailEmployee')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const sel = document.getElementById('detailEmployee');
   if(!sel) return;
   const current = sel.value;
@@ -4023,6 +4080,7 @@ function dateKeysBetween(fromKey, toKey){
   return out;
 }
 function buildDebtDetailData(){
+  if(!document.getElementById('detailFrom')) return {rows:[],tong:0};   // BẢN CÂN: phần này đã xoá khỏi HTML
   const fromKey = document.getElementById('detailFrom').value || todayKey();
   const toKey = document.getElementById('detailTo').value || todayKey();
   const empFilter = document.getElementById('detailEmployee').value;
@@ -4051,6 +4109,7 @@ function buildDebtDetailData(){
   return { fromKey, toKey, periodOpening, dayRows, totalTang, totalGiam, periodClosing };
 }
 function renderDebtDetail(){
+  if(!document.getElementById('debtDetailWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const wrap = document.getElementById('debtDetailWrap');
   const data = buildDebtDetailData();
   if(data.dayRows.length===0){
@@ -4106,6 +4165,7 @@ function balanceAsOf(employeeId, toKey){
   return opening + earned - paid;
 }
 function buildDebtBalanceData(){
+  if(!document.getElementById('balFrom')) return {rows:[],tong:0};   // BẢN CÂN: phần này đã xoá khỏi HTML
   const fromKey = document.getElementById('balFrom').value || todayKey();
   const toKey = document.getElementById('balTo').value || todayKey();
   const B = dungBangTraCuu();
@@ -4118,6 +4178,7 @@ function buildDebtBalanceData(){
   return { fromKey, toKey, rows };
 }
 function renderDebtBalance(){
+  if(!document.getElementById('debtBalanceWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const wrap = document.getElementById('debtBalanceWrap');
   const { rows } = buildDebtBalanceData();
   if(rows.length===0){ wrap.innerHTML = `<div class="empty-state">Không có số dư công nợ nào trong kỳ này</div>`; return; }
@@ -4159,6 +4220,7 @@ function exportDebtBalanceExcel(){
 
 // ===== SETTLEMENT (Chốt ngày) =====
 function renderSettlement(){
+  if(!document.getElementById('settleDate')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const dateKey = document.getElementById('settleDate').value || todayKey();
   const dayWeighings = weighings.filter(w=>w.dateKey===dateKey);
   const empIds = [...new Set(dayWeighings.map(w=>w.employeeId))];
@@ -4847,6 +4909,21 @@ function attachRealtimeListeners(){
           setTimeout(finalizeUserGate, 300);   // để render kịp rồi mới mở cổng
         }
       }
+      /* BẢN CÂN V1.1 — VÁ MÀN CHỜ ĐỨNG.
+         Listener dùng .where('dateKey','>=',...) là QUERY MỚI. Firestore
+         thường bắn gói TỪ BỘ NHỚ ĐỆM trước (fromCache=true) rồi mới bắn gói
+         server. Gói server tới chậm hoặc không tới thì cờ daNhanGoiServer
+         KHÔNG BAO GIỜ bật -> màn chờ đứng cho tới hết đồng hồ dự phòng.
+         Nay: có gói phiếu cân về rồi (dù từ bộ nhớ đệm) thì hẹn 1,5 giây rồi
+         mở cổng — đủ để gói server tới nếu đang trên đường. */
+      if(name === 'weighings' && !daNhanGoiServer && !choMoCong){
+        choMoCong = setTimeout(()=>{
+          choMoCong = null;
+          if(daNhanGoiServer) return;
+          daNhanGoiServer = true;
+          finalizeUserGate();
+        }, 1500);
+      }
       qs.docs.forEach(d=>{
         if(d.metadata && d.metadata.hasPendingWrites) idsChoXacNhan.add(d.id);
         else idsChoXacNhan.delete(d.id);
@@ -5086,6 +5163,7 @@ function mbGon(bytes){
 }
 
 function doSucChua(){
+  if(!document.getElementById('sucChuaWrap')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const wrap = document.getElementById('sucChuaWrap');
   if(!wrap) return;
 
@@ -5422,6 +5500,7 @@ async function tuLuuFile(){
 
 let lanTuLuuCuoi = 0;
 function veTrangThaiTuLuu(){
+  if(!document.getElementById('tuLuuTrangThai')) return;   // BẢN CÂN: phần này đã xoá khỏi HTML
   const el = document.getElementById('tuLuuTrangThai');
   if(!el) return;
   if(!hoTroTuLuu()){
@@ -5749,7 +5828,7 @@ if(document.fonts && document.fonts.ready) document.fonts.ready.then(measureTopB
 switchTab('weigh');
 showSplash();      // khoá app ngay từ giây đầu, tránh vào được rồi mới đòi mật khẩu
 checkUserGate();   // nếu máy đã có sẵn tài khoản thì hiện đăng nhập ngay
-setTimeout(()=>{ if(!splashDone) finalizeUserGate(); }, SPLASH_QUA_HAN + 6000);  // không bao giờ kẹt màn chờ
+setTimeout(()=>{ if(!splashDone) finalizeUserGate(); }, SPLASH_QUA_HAN + 4000);  // không bao giờ kẹt màn chờ
 soMayNap();          // V1.11.1 — nạp sổ máy trước khi cân
 // V1.11.5 — kho phiếu cũ trong localStorage chiếm tới 5 MB và không còn tác dụng
 // khi bộ nhớ đệm Firebase đã bật. Dọn sớm để nhường chỗ cho Sổ máy.
