@@ -2,7 +2,7 @@
 ==================================================================
  PHẦN MỀM QUẢN LÝ CÔNG VIỆC – BÁO CÁO  |  FLIC DNTU
  File: QuanLyCongViec-FLIC-V1.0.0.html
- Phiên bản: V1.2.2   |   Ngày: 17/08/2026
+ Phiên bản: V1.3.0   |   Ngày: 17/08/2026
 ------------------------------------------------------------------
  CĂN CỨ NGHIỆP VỤ
  - Quyết định 14/QĐ-TTNNTH ngày 01/8/2026 (Bản mô tả công việc
@@ -16,6 +16,7 @@
    fcv_bcsiso, fcv_congviec, fcv_choxeplop, fcv_settings,
    fcv_activitylog, fcv_phieuin, fcv_nhain
  - Firebase Storage: thư mục fcv_baogia/ (ảnh báo giá nhà in)
+ - BẮT BUỘC: Authentication → Sign-in method → Anonymous phải bật
  - Host dự kiến: khachblu2-cyber.github.io/flic-congviec/
 ------------------------------------------------------------------
  PHẠM VI GIAI ĐOẠN 1 (bản này)
@@ -61,6 +62,22 @@
    chặn kết nối Firebase khi trang không có nguồn gốc https.
    KHÔNG cần thay đổi gì trên Firebase Console.
               md5 phần thân: cd4fc877eb670ac8912ff425f6501419
+ V1.2.3 – 17/08/2026 – Đưa nhật ký bàn giao ra giao diện:
+   Hệ thống → Nhật ký bàn giao. Nội dung lấy từ hằng số
+   LICH_SU_PHIEN_BAN trong mã nguồn.
+   *** QUY TẮC BẮT BUỘC KHI SỬA PHẦN MỀM ***
+   1. Tăng hằng PHIEN_BAN
+   2. Thêm mục vào LICH_SU_PHIEN_BAN (ghi rõ sửa gì, vì sao)
+   3. Cập nhật khối chú thích này
+   4. Đặt tên file tải về kèm số phiên bản mới
+              md5 phần thân: 559cefa829c3cafa1b1ed7b23b5f5a4f
+ V1.3.0 – 17/08/2026 – Đăng nhập ẩn danh Firebase trước khi đọc
+   dữ liệu. Rules của project so-thu-chi-9f0b5 là:
+     match /{document=**} { allow read, write: if request.auth != null; }
+   nên mọi app dùng project này BẮT BUỘC gọi signInAnonymously().
+   Sổ Thu Chi FLIC đã làm vậy; bản trước của phần mềm này thiếu.
+   KHÔNG sửa Firestore Rules — sẽ ảnh hưởng 4 app đang chạy.
+              md5 phần thân: fdcc513513307b3e56be83756267a04b
 ------------------------------------------------------------------
  GHI CHÚ VẬN HÀNH
  - FLIC-EVT-01 (Sự kiện – Phát triển đối tác): để trống, PGĐ giao
@@ -80,6 +97,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Quản Lý Công Việc FLIC DNTU</title>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js" defer></script>
@@ -250,7 +268,7 @@
   <div class="app-header">
     <div>
       <h1>📋 Quản Lý Công Việc FLIC</h1>
-      <div class="ver">Phiên bản: V1.2.2</div>
+      <div class="ver" id="verLabel">Phiên bản: —</div>
     </div>
     <div class="role-chip" id="roleChip" onclick="moHoSoCuaToi()">—</div>
   </div>
@@ -280,6 +298,52 @@ const firebaseConfig = {
   appId: "1:900824130297:web:27cff5c2f775cf2bd93828"
 };
 let db = null, storage = null;
+
+/* ================= PHIÊN BẢN VÀ NHẬT KÝ BÀN GIAO ================= */
+/* QUY TẮC BẮT BUỘC cho người bảo trì sau này:
+   Mỗi lần sửa phần mềm phải làm đủ 4 việc:
+   1. Tăng PHIEN_BAN ở ngay dưới
+   2. Thêm một mục vào LICH_SU_PHIEN_BAN (ghi rõ sửa gì, vì sao)
+   3. Cập nhật khối chú thích bàn giao ở đầu file
+   4. Đặt tên file tải về kèm số phiên bản mới                        */
+const PHIEN_BAN = 'V1.3.0';
+const NGAY_PHIEN_BAN = '17/08/2026';
+
+const LICH_SU_PHIEN_BAN = [
+  {v:'V1.3.0', ngay:'17/08/2026', muc:[
+    {loai:'Sửa lỗi', nd:'Phần mềm không đọc được dữ liệu, báo lỗi Missing or insufficient permissions. Nguyên nhân: quy tắc bảo mật Firestore của project yêu cầu request.auth khác null, nhưng phần mềm chưa đăng nhập Firebase. Nay đăng nhập ẩn danh ngay khi khởi động, giống app Sổ Thu Chi FLIC. KHÔNG cần sửa Firestore Rules.'},
+    {loai:'Cải tiến', nd:'Màn chẩn đoán nhận biết thêm trường hợp phương thức đăng nhập Anonymous chưa được bật trong Firebase Authentication, và cảnh báo không nên sửa Rules vì sẽ ảnh hưởng các app khác dùng chung project.'}
+  ]},
+  {v:'V1.2.3', ngay:'17/08/2026', muc:[
+    {loai:'Mới', nd:'Thêm mục Nhật ký bàn giao ngay trong phần mềm (Hệ thống → Nhật ký bàn giao), để người bảo trì sau đọc được lịch sử thay đổi mà không cần mở mã nguồn.'},
+    {loai:'Cải tiến', nd:'Số phiên bản gom về một chỗ duy nhất, tránh sửa sót khi cập nhật.'}
+  ]},
+  {v:'V1.2.2', ngay:'17/08/2026', muc:[
+    {loai:'Sửa lỗi', nd:'Mở file trực tiếp từ ổ đĩa thì trình duyệt chặn kết nối Firebase, phần mềm lại hiện màn đăng nhập khiến không ai vào được. Nay phát hiện và hướng dẫn đưa lên GitHub Pages. KHÔNG cần thay đổi gì trên Firebase Console.'}
+  ]},
+  {v:'V1.2.1', ngay:'17/08/2026', muc:[
+    {loai:'Sửa lỗi', nd:'Khi không đọc được dữ liệu, phần mềm im lặng chuyển sang màn đăng nhập, người dùng không biết vì sao. Nay có màn chẩn đoán nêu rõ nguyên nhân, mã lỗi và cách xử lý, kèm nút Thử lại.'}
+  ]},
+  {v:'V1.2.0', ngay:'17/08/2026', muc:[
+    {loai:'Sửa lỗi', nd:'Ngày ghi danh mặc định là hôm nay, khiến toàn bộ học viên cũ bị đếm thành tăng mới khi nhập liệu ban đầu, làm sai báo cáo tuần đầu tiên. Nay mặc định lấy theo ngày khai giảng của lớp.'},
+    {loai:'Sửa lỗi', nd:'Chưa cài cơ chế kiêm nhiệm vị trí, khiến ba quy trình C1, C5, C8 thiếu người xác nhận và việc giao bị nhảy qua bước xác nhận. Nay Bộ phận Chuyên môn do Phó Giám đốc giữ tạm, cấu hình được ở Sơ đồ tổ chức.'},
+    {loai:'Sửa lỗi', nd:'Chức năng xuất Excel báo cáo tuần bị lỗi hoàn toàn do gọi sai thư viện, bấm là văng lỗi không ra file.'},
+    {loai:'Sửa lỗi', nd:'Bấm điểm danh từ màn hình khác không tự chuyển sang tab Học vụ, trông như bấm không ăn.'},
+    {loai:'Mới', nd:'Hồ sơ của tôi và đổi mật khẩu. Trước đó 8 tài khoản dùng chung mật khẩu mặc định 123456 mà không có cách nào đổi.'},
+    {loai:'Mới', nd:'Chống tạo trùng lớp cùng mã và cùng ngày khai giảng, vẫn cho phép cùng mã khác ngày.'},
+    {loai:'Mới', nd:'Nhắc đóng lớp đã qua ngày kết thúc, vì lớp để trạng thái Đang học vẫn bị tính vào sĩ số báo cáo.'},
+    {loai:'Mới', nd:'Bảng tải phân công theo người trong mục 16 quy trình, gắn nhãn Điểm nghẽn để thấy ai đang quá tải phê duyệt.'},
+    {loai:'Cải tiến', nd:'Thêm ô tìm kiếm trong tab Công việc.'}
+  ]},
+  {v:'V1.1.0', ngay:'17/08/2026', muc:[
+    {loai:'Mới', nd:'Module In ấn và công nợ nhà in: đề xuất in, nhập báo giá (kèm ảnh tuỳ chọn), phê duyệt theo hạn mức, đặt in, nhận hàng đối chiếu số lượng, thanh toán và theo dõi công nợ. Hạn mức Phó Giám đốc duyệt 10 triệu, vượt mức chuyển Giám đốc.'},
+    {loai:'Mới', nd:'Phiếu in đánh dấu Tài liệu mật cho đề thi: chỉ Khảo thí, Ban Giám đốc và người đề xuất xem được nội dung, Kế toán vẫn thấy phiếu để làm thủ tục chi.'}
+  ]},
+  {v:'V1.0.0', ngay:'17/08/2026', muc:[
+    {loai:'Mới', nd:'Bản đầu tiên. Nền tảng vị trí việc làm và phân quyền theo Quyết định 14/QĐ-TTNNTH; giao việc lưu vết theo mô hình Chủ trì – Phối hợp – Xác nhận – Phê duyệt với 16 quy trình Phần C cài sẵn; học vụ gồm danh mục lớp, học viên, ghi danh, điểm danh, chờ xếp lớp; báo cáo học vụ tuần chốt và xuất Excel.'},
+    {loai:'Mới', nd:'Cưỡng chế nguyên tắc phân tách nhiệm vụ: một tài khoản không được giữ đồng thời quyền thu tiền và xác nhận đối soát.'}
+  ]}
+];
 
 /* ================= HẰNG SỐ NGHIỆP VỤ (QĐ 14/QĐ-TTNNTH) ================= */
 const VI_TRI = [
@@ -454,7 +518,25 @@ function boot(){
   }
   try{ storage = firebase.storage(); }catch(e){ storage = null; }
   $('bootScreen').style.display = 'flex';
-  kiemTraKetNoi();
+  dangNhapAnDanh();
+}
+
+/* Quy tắc bảo mật Firestore của project yêu cầu request.auth != null.
+   Phải đăng nhập ẩn danh trước khi đọc ghi, giống app Sổ Thu Chi FLIC.
+   Đây KHÔNG phải tài khoản người dùng — tài khoản nhân sự nằm ở fcv_users. */
+function dangNhapAnDanh(){
+  $('bootScreen').style.display = 'flex';
+  $('bootTrangThai').textContent = 'Đang kết nối máy chủ dữ liệu…';
+  $('bootNoiDung').textContent = 'Đang xác thực với Firebase.';
+  $('bootLoi').innerHTML = '';
+  let auth;
+  try{ auth = firebase.auth(); }
+  catch(e){ hienLoiKetNoi(e, 'khoi-tao-auth'); return; }
+
+  if(auth.currentUser){ kiemTraKetNoi(); return; }
+  auth.signInAnonymously()
+    .then(function(){ kiemTraKetNoi(); })
+    .catch(function(e){ hienLoiKetNoi(e, 'dang-nhap-an-danh'); });
 }
 
 function kiemTraKetNoi(){
@@ -520,21 +602,26 @@ function hienLoiKetNoi(e, buoc){
   $('bootNoiDung').textContent = '';
 
   let tieuDe, huongDan;
-  if(ma.indexOf('permission-denied') >= 0 || msg.indexOf('Missing or insufficient permissions') >= 0){
+  if(ma.indexOf('operation-not-allowed') >= 0 || ma.indexOf('admin-restricted') >= 0){
+    tieuDe = 'Chưa bật đăng nhập ẩn danh';
+    huongDan = '<div class="small" style="line-height:1.7;">'
+      + 'Quy tắc bảo mật Firestore yêu cầu phải xác thực. Vào '
+      + '<b>Firebase Console → Authentication → Sign-in method</b>, bật phương thức '
+      + '<b>Anonymous</b> rồi tải lại trang. Đây là phương thức mà Sổ Thu Chi FLIC đang dùng.'
+      + '</div>';
+  } else if(ma.indexOf('permission-denied') >= 0 || msg.indexOf('Missing or insufficient permissions') >= 0){
     tieuDe = 'Firestore từ chối quyền truy cập';
     huongDan =
       '<div class="small" style="line-height:1.7;">'
-      + 'Quy tắc bảo mật của Firestore chưa cho phép nhóm dữ liệu <b>fcv_</b> của phần mềm này.<br><br>'
-      + 'Vào <b>Firebase Console → Firestore Database → Rules</b>, bổ sung đoạn sau rồi bấm <b>Publish</b>:'
+      + 'Đã kết nối được Firebase nhưng quy tắc bảo mật không cho đọc nhóm dữ liệu <b>fcv_</b>.<br><br>'
+      + 'Kiểm tra <b>Firebase Console → Authentication → Sign-in method</b> xem phương thức '
+      + '<b>Anonymous</b> đã bật chưa. Nếu đã bật mà vẫn lỗi, xem lại '
+      + '<b>Firestore Database → Rules</b>.'
       + '</div>'
-      + '<pre style="background:#f2f4f7;border:1px solid var(--border);border-radius:8px;padding:10px;'
-      + 'font-size:11px;overflow-x:auto;margin-top:8px;white-space:pre;">'
-      + 'match /{col}/{docId} {\n'
-      + '  allow read, write: if col.matches(\'fcv_.*\');\n'
-      + '}</pre>'
-      + '<div class="small muted" style="margin-top:6px;">Đặt bên trong khối <b>match /databases/{database}/documents</b>, '
-      + 'thêm cạnh các dòng đang có sẵn. <b>Tuyệt đối không xoá dòng cũ</b> — xoá nhầm sẽ làm '
-      + 'Sổ Thu Chi, Cấp Mã Lô và Cơ Điện ngừng đọc được dữ liệu.</div>';
+      + '<div class="small muted" style="margin-top:8px;">Quy tắc hiện hành của project yêu cầu '
+      + '<b>request.auth != null</b>. Phần mềm này đăng nhập ẩn danh giống Sổ Thu Chi FLIC nên '
+      + 'bình thường sẽ thoả mãn. <b>Không cần sửa Rules</b> — sửa nhầm sẽ làm Sổ Thu Chi, '
+      + 'Cấp Mã Lô và Cơ Điện ngừng đọc được dữ liệu.</div>';
   } else if(ma.indexOf('unavailable') >= 0 || ma === 'timeout'){
     tieuDe = 'Không kết nối được mạng';
     huongDan = '<div class="small" style="line-height:1.7;">Máy không truy cập được máy chủ Firebase. '
@@ -558,7 +645,7 @@ function hienLoiKetNoi(e, buoc){
     + '<div class="small muted" style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">'
     + 'Bước lỗi: ' + esc(buoc) + (ma ? ' · mã: ' + esc(ma) : '') + '<br>' + esc(msg) + '</div>'
     + '</div>'
-    + '<button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="kiemTraKetNoi()">Thử lại</button>';
+    + '<button class="btn btn-primary btn-block" style="margin-top:12px;" onclick="dangNhapAnDanh()">Thử lại</button>';
 }
 
 function doBootstrap(){
@@ -640,6 +727,7 @@ function doLogout(){
 
 function startApp(){
   $('mainApp').style.display='block';
+  $('verLabel').textContent = 'Phiên bản: ' + PHIEN_BAN;
   $('roleChip').innerHTML = esc(currentUser.hoTen)+'<br><span style="opacity:.8;font-size:10px;">'+esc(currentUser.maViTri)+'</span>';
   applyTabPerms();
   listenAll();
@@ -794,7 +882,7 @@ const SECTIONS = {
   hocVu:    [{k:'lop',ten:'Danh mục lớp'},{k:'hocVien',ten:'Học viên'},{k:'diemDanh',ten:'Điểm danh'},{k:'choXep',ten:'Chờ xếp lớp'}],
   congViec: [{k:'choDuyet',ten:'Chờ tôi duyệt'},{k:'cuaToi',ten:'Việc của tôi'},{k:'tatCa',ten:'Tất cả'},{k:'quyTrinh',ten:'16 quy trình'}],
   inAn:     [{k:'phieu',ten:'Phiếu in'},{k:'congNo',ten:'Công nợ nhà in'},{k:'nhaIn',ten:'Nhà in'}],
-  heThong:  [{k:'toChuc',ten:'Sơ đồ tổ chức'},{k:'taiKhoan',ten:'Tài khoản'},{k:'thamSo',ten:'Tham số'},{k:'nhatKy',ten:'Nhật ký'}]
+  heThong:  [{k:'toChuc',ten:'Sơ đồ tổ chức'},{k:'taiKhoan',ten:'Tài khoản'},{k:'thamSo',ten:'Tham số'},{k:'nhatKy',ten:'Nhật ký'},{k:'banGiao',ten:'Nhật ký bàn giao'}]
 };
 
 function switchTab(tab){
@@ -2275,6 +2363,7 @@ function viewHeThong(){
   if(sec==='taiKhoan')return viewTaiKhoan();
   if(sec==='thamSo')  return viewThamSo();
   if(sec==='nhatKy')  return viewNhatKy();
+  if(sec==='banGiao') return viewNhatKyBanGiao();
   return '';
 }
 
@@ -2490,6 +2579,41 @@ function viewNhatKy(){
       + '<div>'+esc(a.action)+'</div><div class="muted">'+fmtTs(a.ts)+'</div></div></div>';
   }).join('');
   h += '</div>';
+  return h;
+}
+
+function viewNhatKyBanGiao(){
+  const mauLoai = {'Mới':'ok','Sửa lỗi':'danger','Cải tiến':'info'};
+  let h = '<div class="card"><h3>Nhật ký bàn giao</h3>'
+    + '<div class="small muted" style="line-height:1.7;">Lịch sử mọi thay đổi của phần mềm. '
+    + 'Phiên bản đang chạy: <b>'+esc(PHIEN_BAN)+'</b> · '+esc(NGAY_PHIEN_BAN)+'</div>'
+    + '<div class="small muted" style="margin-top:8px;border-top:1px solid var(--border);padding-top:8px;line-height:1.7;">'
+    + '<b>Quy tắc cho người bảo trì sau:</b> mỗi lần sửa phần mềm phải tăng số phiên bản, '
+    + 'thêm một mục vào nhật ký này, cập nhật khối chú thích ở đầu file mã nguồn, '
+    + 'và đặt tên file tải về kèm số phiên bản mới.</div></div>';
+
+  h += LICH_SU_PHIEN_BAN.map(function(pb, idx){
+    return '<div class="card">'
+      + '<div class="row" style="margin-bottom:8px;"><div><b style="font-size:15px;">'+esc(pb.v)+'</b>'
+      + (idx===0? ' '+badge('ok','Đang chạy') : '')+'</div>'
+      + '<span class="small muted">'+esc(pb.ngay)+'</span></div>'
+      + pb.muc.map(function(m){
+          return '<div class="list-row" style="align-items:flex-start;">'
+            + '<div style="flex-shrink:0;width:74px;">'+badge(mauLoai[m.loai]||'gray', m.loai)+'</div>'
+            + '<div class="small" style="flex:1;line-height:1.6;">'+esc(m.nd)+'</div></div>';
+        }).join('')
+      + '</div>';
+  }).join('');
+
+  h += '<div class="card"><div class="small muted" style="line-height:1.7;">'
+    + '<b>Thông tin kỹ thuật</b><br>'
+    + 'Firebase project: <b>so-thu-chi-9f0b5</b> (dùng chung với Sổ Thu Chi, Cấp Mã Lô, Cơ Điện)<br>'
+    + 'Tiền tố dữ liệu riêng của phần mềm này: <b>fcv_</b> — không đụng dữ liệu app khác<br>'
+    + 'Các nhóm dữ liệu: fcv_users, fcv_lop, fcv_hocvien, fcv_ghidanh, fcv_buoihoc, fcv_bcsiso, '
+    + 'fcv_congviec, fcv_choxeplop, fcv_phieuin, fcv_nhain, fcv_settings, fcv_activitylog<br>'
+    + 'Ảnh báo giá nhà in: Firebase Storage, thư mục fcv_baogia/<br>'
+    + 'Phải chạy bằng địa chỉ https, không mở trực tiếp file từ ổ đĩa.'
+    + '</div></div>';
   return h;
 }
 
