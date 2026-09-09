@@ -591,7 +591,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">CÂN V1.5</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">CÂN V1.5.1</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -1829,9 +1829,11 @@ let canOnDinh = false;         // cân báo ST
 let canOnDinhTu = 0;           // mốc thời gian bắt đầu ổn định
 let canSoOnDinh = null;        // số đang giữ ổn định
 let canLucNhanCuoi = 0;        // lần cuối nhận được gói, để biết mất kết nối
+let canSoDaNhap = null;        // số vừa nhập xong — chờ nhấc vật ra mới cho nhập tiếp
 
 const CAN_CHO_ON_DINH_MS = 500;   // giữ ST đủ 0,5 giây mới cho bấm NHẬP
 const CAN_QUA_HAN_MS     = 3000;  // quá 3 giây không nhận gói -> coi như mất kết nối
+const CAN_NGUONG_VE_KHONG = 0.05; // dưới mức này coi như đã nhấc vật ra khỏi cân
 
 /* Trình duyệt có đọc được cổng serial không.
    Chrome/Edge trên Windows: có. Chrome Android: chỉ qua Bluetooth.
@@ -1902,7 +1904,7 @@ async function canNgat(){
   try{ if(canDoc){ await canDoc.cancel(); canDoc.releaseLock(); } }catch(e){}
   try{ if(canCong) await canCong.close(); }catch(e){}
   canCong = null; canDoc = null;
-  canSoHienTai = null; canOnDinh = false; canSoOnDinh = null;
+  canSoHienTai = null; canOnDinh = false; canSoOnDinh = null; canSoDaNhap = null;
   ghiNhatKy('Ngắt cân điện tử');
   veTrangThaiCan();
 }
@@ -1940,6 +1942,11 @@ function canNhanGoi(goi){
   canSoHienTai = kq.so;
   canOnDinh = kq.on;
 
+  /* Nhấc vật ra khỏi cân (số về gần 0) -> xoá dấu "đã nhập",
+     cho phép cân mẻ tiếp theo. Đây là cách duy nhất mở khoá,
+     nên không thể bấm hai lần cho cùng một mẻ. */
+  if(Math.abs(kq.so) < CAN_NGUONG_VE_KHONG) canSoDaNhap = null;
+
   if(kq.on){
     // Giữ nguyên số bao lâu rồi? Số đổi thì đếm lại từ đầu.
     if(canSoOnDinh === null || Math.abs(canSoOnDinh - kq.so) > 1e-9){
@@ -1958,6 +1965,13 @@ function canSanSang(){
   if(!canDangNoi()) return false;
   if(!canOnDinh || canSoOnDinh === null) return false;
   if(canSoOnDinh <= 0) return false;                       // số 0 hoặc âm: không cho
+  /* CHẶN NHẬP TRÙNG — lỗi anh Tinh bắt được 07/09.
+     Cơ chế chống trùng cũ chỉ chặn 0,6 giây. Nhưng cân xong tôm VẪN CÒN trên
+     cân, số giữ nguyên, nên bấm lại sau 1 giây là tạo phiếu trùng —
+     ảnh chụp cho thấy 5kg hai lần, 4.8kg hai lần trong cùng một phút.
+     Nay: mỗi lần đặt vật lên cân chỉ nhập được MỘT lần. Muốn nhập tiếp phải
+     NHẤC VẬT RA (số về dưới 0,05 kg) rồi đặt mẻ mới. */
+  if(canSoDaNhap !== null) return false;
   return (Date.now() - canOnDinhTu) >= CAN_CHO_ON_DINH_MS;
 }
 
@@ -2017,6 +2031,10 @@ function veTrangThaiCan(){
       bang.className = 'can-tt can-tt-do';
       bang.innerHTML = '⚠️ <b>Cân đang âm (' + canSoHienTai + ' kg)</b> — '
         + 'bấm nút ZERO trên cân trước khi cân tiếp.';
+    }else if(canSoDaNhap !== null){
+      bang.className = 'can-tt can-tt-vang';
+      bang.innerHTML = '✅ <b>Đã nhập mẻ này rồi</b> — nhấc hàng ra khỏi cân '
+        + 'rồi đặt mẻ tiếp theo.';
     }else if(sanSang){
       bang.className = 'can-tt can-tt-xanh';
       bang.innerHTML = '✓ <b>Số đã đứng yên</b> — bấm NHẬP để lưu phiếu';
@@ -3634,7 +3652,11 @@ function addWeighing(){
     return;
   }
   if(canDangNoi() && !canSanSang()){
-    alert("Số trên cân chưa đứng yên.\n\nChờ số ổn định rồi bấm NHẬP.");
+    if(canSoDaNhap !== null){
+      alert("Mẻ này đã nhập rồi.\n\nNhấc hàng ra khỏi cân rồi đặt mẻ tiếp theo.");
+    }else{
+      alert("Số trên cân chưa đứng yên.\n\nChờ số ổn định rồi bấm NHẬP.");
+    }
     return;
   }
   const gate = checkWeighAllowed();
@@ -3650,6 +3672,8 @@ function addWeighing(){
     return;
   }
   lanCanCuoi = { dauVet: dauVetCan, luc: Date.now() };
+  // V1.5 — ghi dấu mẻ vừa nhập. Chỉ mở lại khi nhấc vật ra khỏi cân.
+  if(canDangNoi()) canSoDaNhap = canSoOnDinh;
 
   const p = products.find(x=>x.id===selectedProductId);
   const amount = kg * p.unitPrice;
