@@ -1,8 +1,8 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.6.3
- Ngày      : 21/09/2026
+ Phiên bản : V1.6.4
+ Ngày      : 22/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
  Mục đích  : Xem chấm công từ 4 máy Hikvision (đẩy về qua Cloud
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.6.4 – Sửa lỗi V1.6.3: Chấm công/Báo cáo ngày lấy sai khoá dữ liệu khi tổ tự chốt tải
+            thêm 6 ngày → "undefined events". Giờ dùng thẳng dữ liệu vừa tải.
    V1.6.3 – Tổ "Tự chốt theo máy"/"Tự nhận nhóm": ghép ca theo CHUỖI nhiều ngày của từng
             người (neo sau khoảng trống ≥20h; không có neo → chọn cách ghép có giờ vào ổn
             định nhất), không tách theo ngày lịch → người ca sáng 04:xx→17:xx và ca đêm
@@ -380,7 +382,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.3</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.4</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -888,7 +890,7 @@ function autoPrefill(deptId,d){ const R=rulesOf(deptId); const dm=isDiem(deptId)
   for(let g=2;g<=soNhom(deptId);g++){ const gi=R['nhomVao'+g], go=R['nhomRa'+g]; if(gi&&go) l.groups.push({inTime:gi,outTime:go,outNextDay:go<=gi}); } return l; }
 /* giờ ra TT = mốc SỚM NHẤT có ≥2 người (hoặc ≥25% nhóm) ra trong 30 phút — người ra sau đó không bị trừ, người ra trước bị trừ; không có cụm → trung vị */
 function medianRound15(arr){ if(!arr.length) return null; const a=arr.slice().sort((x,y)=>x-y); const need=Math.max(2,Math.ceil(a.length*0.25)); for(let i=0;i<a.length;i++){ let j=i; while(j+1<a.length&&a[j+1]-a[i]<=1800000) j++; if(j-i+1>=need) return Math.round(a[i]/900000)*900000; } const m=a.length%2?a[(a.length-1)/2]:(a[a.length/2-1]+a[a.length/2])/2; return Math.round(m/900000)*900000; }
-function computeDept(deptId, events, from, to){
+function computeDept(deptId, events, from, to){ events=events||[];
   if(!isTuChot(deptId)) return computeDeptCore(deptId,events,from,to);
   /* V1.6.3: ghép chuỗi cho từng người → PRE; các ngày TT chốt tay (không auto) giữ nguyên cách khung */
   { const R=rulesOf(deptId); const pf=autoPrefill(deptId,from); const toMin=t=>{ const [h,m]=String(t||'0:0').split(':').map(Number); return h*60+m; }; R._groups=[{in:toMin(pf.inTime),out:toMin(pf.outTime)}].concat((pf.groups||[]).map(g=>({in:toMin(g.inTime),out:toMin(g.outTime)}))); const byNo={}; events.forEach(ev=>{ (byNo[String(ev.employeeNo)]=byNo[String(ev.employeeNo)]||[]).push(ev); }); const pre={}; for(const no in byNo){ const ss=chainSessions(byNo[no],R); const m={}; ss.forEach(x=>{ if(!m[x.date]||(x.outMs&&!m[x.date].outMs)) m[x.date]=x; }); pre[no]=m; } window.__preSess=window.__preSess||{}; window.__preSess[deptId]=pre; }
@@ -975,8 +977,8 @@ async function loadCham(force){ CFILTER=null; if(force){ clearEvCache(); try{ aw
   if(!dept){ $('#cLine').innerHTML='<div class="note info">Chưa có bộ phận nào bật "Tổ trưởng tự chấm". Vào Cấu hình → tick "Tổ trưởng tự chấm (theo giờ tổ trưởng)" cho bộ phận cần dùng.</div>'; $('#cList').innerHTML=''; $('#cStat').innerHTML=''; $('#cFoot').innerHTML=''; return; }
   const emps=deptEmps(dept); const nos=emps.map(e=>String(e.employeeNo)); $('#cCount').textContent=nos.length+' NV';
   loadBox('#cList');
-  const ym=date.slice(0,7); try{ await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(date,-6):date,date,force), loadAdj(nos,ym+'-01',ym+'-'+pad(monthDays(ym))), loadLines(dept,date,date)]); }catch(e){ loadErr('#cList',e,'loadCham(true)'); return; }
-  CHAM=computeDept(dept,EVCACHE[[...nos].sort().join(',')+'|'+date+'|'+date],date,date); CHAMCTX={dept,date}; renderCham();
+  const ym=date.slice(0,7); let evC; try{ [evC]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(date,-6):date,date,force), loadAdj(nos,ym+'-01',ym+'-'+pad(monthDays(ym))), loadLines(dept,date,date)]); }catch(e){ loadErr('#cList',e,'loadCham(true)'); return; }
+  CHAM=computeDept(dept,evC||[],date,date); CHAMCTX={dept,date}; renderCham(); /* V1.6.4: dùng đúng dữ liệu vừa tải */
 }
 /* Ngày hiện tại và chưa tới giờ ra chuyền -> người chưa quét ra là đang làm, không phải lỗi */
 function isLive(line,date){ if(!line||line.xc) return false; let out=lineBounds(line).outMs; (line.groups||[]).forEach(g=>{ if(g&&g.inTime&&g.outTime){ const v=Object.assign({},line,{inTime:g.inTime,outTime:g.outTime,outNextDay:!!g.outNextDay}); out=Math.max(out,lineBounds(v).outMs); } }); return Date.now()<out; } /* V1.6.1: đang làm xét theo giờ ra muộn nhất của các nhóm */
@@ -1408,8 +1410,8 @@ async function loadBC(force){
   const date=$('#bDate').value, depts=bcDepts(); if(!depts.length){ $('#bcTbl').innerHTML='<div class="note">Chưa có bộ phận.</div>'; return; }
   loadBox('#bcTbl','Đang tổng hợp '+depts.length+' bộ phận…');
   const nos=[]; depts.forEach(d=>deptEmps(d).forEach(e=>nos.push(String(e.employeeNo))));
-  try{ await Promise.all([loadEvents(nos,date,date,force), loadAdj(nos,date,date), ...depts.map(d=>loadLines(d,date,date))]); }catch(e){ loadErr('#bcTbl',e,'loadBC(true)'); return; } /* V1.4.1: tải lines mọi tổ để lấy ghi chú */
-  const ev=EVCACHE[[...nos].sort().join(',')+'|'+date+'|'+date]||[]; const since=vnMs(addDays(date,-7),'00:00');
+  let evB; try{ [evB]=await Promise.all([loadEvents(nos,depts.some(isTuChot)?addDays(date,-6):date,date,force), loadAdj(nos,date,date), ...depts.map(d=>loadLines(d,date,date))]); }catch(e){ loadErr('#bcTbl',e,'loadBC(true)'); return; } /* V1.4.1: tải lines mọi tổ để lấy ghi chú */
+  const ev=evB||[]; const since=vnMs(addDays(date,-7),'00:00');
   BC={date,rows:[]};
   for(const d of depts){ const r=computeDept(d,ev,date,date); const emps=Object.values(r); const tu=isTuCham(d); const line=tu?lineOf(d,date):null;
     const quet=emps.filter(x=>x.days[date].in&&!x.days[date].isP).length; /* V1.3.8: P không đếm */
