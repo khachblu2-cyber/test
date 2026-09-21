@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.6.0
+ Phiên bản : V1.6.1
  Ngày      : 21/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.6.1 – "Đang làm" xét theo giờ ra muộn nhất trong các nhóm (tổ 2 nhóm ngày/đêm
+            không còn báo thiếu quét ra cho ca đêm đang làm).
    V1.6.0 – Cấu hình: ô "Tự nhận nhóm theo máy" — app gom người theo giờ vào (±1h) và
             giờ ra (±45') thành ≥2-người/nhóm, tối đa 4 nhóm/ngày; mốc nhóm = lúc bắt
             đầu vào/về (tròn 15'); mỗi nhóm = khung giờ TT (đủ điểm). Khung Chấm công
@@ -369,7 +371,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.0</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.1</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -946,7 +948,7 @@ async function loadCham(force){ CFILTER=null; if(force){ clearEvCache(); try{ aw
   CHAM=computeDept(dept,EVCACHE[[...nos].sort().join(',')+'|'+date+'|'+date],date,date); CHAMCTX={dept,date}; renderCham();
 }
 /* Ngày hiện tại và chưa tới giờ ra chuyền -> người chưa quét ra là đang làm, không phải lỗi */
-function isLive(line,date){ if(!line||line.xc) return false; const L=lineBounds(line); return Date.now()<L.outMs; }
+function isLive(line,date){ if(!line||line.xc) return false; let out=lineBounds(line).outMs; (line.groups||[]).forEach(g=>{ if(g&&g.inTime&&g.outTime){ const v=Object.assign({},line,{inTime:g.inTime,outTime:g.outTime,outNextDay:!!g.outNextDay}); out=Math.max(out,lineBounds(v).outMs); } }); return Date.now()<out; } /* V1.6.1: đang làm xét theo giờ ra muộn nhất của các nhóm */
 function lineClosed(dept,date){ const l=lineOf(dept,date); return !!(l&&l.closed); }
 function canEditCham(dept,date){ if(ME.role!=='totruong') return true; return !lineClosed(dept,date); }
 function renderCham(){
