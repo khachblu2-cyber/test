@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.6.2
+ Phiên bản : V1.6.3
  Ngày      : 21/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,11 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.6.3 – Tổ "Tự chốt theo máy"/"Tự nhận nhóm": ghép ca theo CHUỖI nhiều ngày của từng
+            người (neo sau khoảng trống ≥20h; không có neo → chọn cách ghép có giờ vào ổn
+            định nhất), không tách theo ngày lịch → người ca sáng 04:xx→17:xx và ca đêm
+            17:xx→04:xx phân biệt đúng. Chấm công/Tháng/Lương/Chi tiết tải thêm 6 ngày
+            trước cho tổ này.
    V1.6.2 – Chi tiết quét: lượt thuộc ca hôm trước (ca đêm ra sáng nay) hiện xám, ghi
             "ca dd/mm" thay vì gạch "lẻ"; tiêu đề ngày ghi đủ N1/N2 và "(hôm sau)".
             Tự chốt theo máy: khung tìm lượt ra vẫn theo giờ ra gốc (+6h), không co theo
@@ -375,7 +380,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.2</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.3</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -863,12 +868,33 @@ function isTuNhom(deptId){ return !!(DEPTS[deptId]&&DEPTS[deptId].tuNhom&&isTuCh
 /* V1.6.0: gom người theo (giờ vào ±60', giờ ra ±45') thành nhóm ≥2 người, tối đa 4; mốc = lúc nhóm bắt đầu vào/về (tròn 15') */
 function autoGroups(points){ const pts=points.filter(p=>p.inMs&&p.outMs).sort((a,b)=>a.inMs-b.inMs); const cl=[]; for(const p of pts){ let c=cl.find(c=>Math.abs(p.inMs-c.in0)<=3600000&&Math.abs(p.outMs-c.out0)<=2700000); if(!c){ c={in0:p.inMs,out0:p.outMs,ins:[],outs:[]}; cl.push(c); } c.ins.push(p.inMs); c.outs.push(p.outMs); }
   const big=cl.filter(c=>c.ins.length>=2).sort((a,b)=>b.ins.length-a.ins.length).slice(0,4).sort((a,b)=>a.in0-b.in0); return big.map(c=>({inMs:medianRound15(c.ins),outMs:medianRound15(c.outs),n:c.ins.length,inMin:Math.min(...c.ins),inMax:Math.max(...c.ins),outMin:Math.min(...c.outs),outMax:Math.max(...c.outs)})); }
+/* V1.6.3: GHÉP CA THEO CHUỖI — nhìn nhiều ngày của từng người: sau khoảng trống ≥20h lượt kế tiếp là VÀO; ghép vào–ra lần lượt
+   (ra = lượt cuối trong ≤ maxCa kể từ vào; lượt sau đó cách ≥ gapCaMoi = ca mới). Chuỗi không có khoảng trống để neo → chọn cách ghép
+   (bắt đầu từ lượt 1 hay lượt 2) có giờ VÀO ổn định nhất (người vào đúng giờ, ra thất thường). */
+function chainSessions(scans,R){ const a=scans.slice().sort((x,y)=>x.ms-y.ms); const dup=(R.trungPhut||2)*60000; const maxCa=(R.maxCa||20)*3600000, gap=(R.gapCaMoi||8)*3600000;
+  const sc=[]; for(const x of a){ if(sc.length&&x.ms-sc[sc.length-1].ms<=dup) continue; sc.push(x); }
+  const build=(start)=>{ const out=[]; let i=start; while(i<sc.length){ const inS=sc[i]; let j=i; while(j+1<sc.length&&sc[j+1].ms-inS.ms<=maxCa) j++; /* ra = lượt cuối trong ≤ maxCa kể từ vào */ const outS=j>i?sc[j]:null; out.push({inMs:inS.ms,inMac:inS.mac,outMs:outS?outS.ms:null,outMac:outS?outS.mac:null,scans:sc.slice(i,j+1),date:vnDate(inS.ms)}); i=j+1; } return out; };
+  const tod=ms=>{ const d=new Date(ms+7*3600000); return d.getUTCHours()*60+d.getUTCMinutes(); }; const std=arr=>{ if(arr.length<2) return 600; const m=arr.reduce((p,q)=>p+q,0)/arr.length; return Math.sqrt(arr.reduce((p,q)=>p+(q-m)*(q-m),0)/arr.length); };
+  const grpMin=(R._groups||[]); const cdiff=(a,b)=>Math.min(((a-b)+1440)%1440,((b-a)+1440)%1440); const fits=ss=>ss.filter(x=>x.outMs&&grpMin.some(g=>cdiff(tod(x.inMs),g.in)<=60&&cdiff(tod(x.outMs),g.out)<=180)).length; /* vào ±1h, ra ±3h (ra thường muộn) */
+  const score=ss=>{ const full=ss.filter(x=>x.outMs); return {fit:fits(full),sp:std(full.map(x=>tod(x.inMs)))+std(full.map(x=>tod(x.outMs)))}; };
+  const better=(A,B)=>{ const a=score(A), b=score(B); if(a.fit!==b.fit) return a.fit>b.fit?A:B; return a.sp<=b.sp?A:B; }; /* nhiều phiên khớp nhóm cấu hình hơn thắng; hoà → giờ vào+ra ổn định hơn thắng */
+  const anchor=sc.findIndex((x,i)=>i>0&&x.ms-sc[i-1].ms>=20*3600000); let ss;
+  if(anchor>0){ const head=build(0).filter(x=>x.inMs<sc[anchor].ms), head2=build(1).filter(x=>x.inMs<sc[anchor].ms); ss=better(head,head2).concat(build(anchor)); }
+  else { ss=better(build(0),build(1)); }
+  /* ghép lại theo NHÓM CHỦ ĐẠO của người đó: nếu ≥60% phiên có giờ vào trùng 1 nhóm cấu hình (±90'), thì lượt nào gần giờ vào nhóm đó (±2h) là VÀO, các lượt khác chỉ có thể là RA → ngày thiếu quét không làm lệch chuỗi */
+  const full=ss.filter(x=>x.outMs); if(grpMin.length&&full.length>=2){ const cnt=grpMin.map(g=>full.filter(x=>Math.abs(tod(x.inMs)-g.in)<=90).length); const bi=cnt.indexOf(Math.max(...cnt)); if(cnt[bi]>=2&&cnt[bi]>=0.6*full.length){ const g=grpMin[bi]; const isIn=x=>Math.abs(tod(x.ms)-g.in)<=120||Math.abs(tod(x.ms)-g.in)>=1320; const out=[]; let cur=null; for(const x of sc){ if(isIn(x)&&(!cur||x.ms-cur.inMs>maxCa*0.5)){ if(cur) out.push(cur); cur={inMs:x.ms,inMac:x.mac,outMs:null,outMac:null,scans:[x],date:vnDate(x.ms)}; } else if(cur&&x.ms-cur.inMs<=maxCa){ cur.outMs=x.ms; cur.outMac=x.mac; cur.scans.push(x); } } if(cur) out.push(cur); ss=out; } }
+  return ss; }
 function autoPrefill(deptId,d){ const R=rulesOf(deptId); const dm=isDiem(deptId); const inT=dm?(R.caVao||'05:00'):(R.chuyenVao||'07:00'); const outT=dm?(R.caHet||'16:00'):(R.chuyenRa||'17:00'); const l={deptId,date:d,inTime:inT,outTime:outT,outNextDay:outT<=inT,groups:[],auto:true};
   for(let g=2;g<=soNhom(deptId);g++){ const gi=R['nhomVao'+g], go=R['nhomRa'+g]; if(gi&&go) l.groups.push({inTime:gi,outTime:go,outNextDay:go<=gi}); } return l; }
 /* giờ ra TT = mốc SỚM NHẤT có ≥2 người (hoặc ≥25% nhóm) ra trong 30 phút — người ra sau đó không bị trừ, người ra trước bị trừ; không có cụm → trung vị */
 function medianRound15(arr){ if(!arr.length) return null; const a=arr.slice().sort((x,y)=>x-y); const need=Math.max(2,Math.ceil(a.length*0.25)); for(let i=0;i<a.length;i++){ let j=i; while(j+1<a.length&&a[j+1]-a[i]<=1800000) j++; if(j-i+1>=need) return Math.round(a[i]/900000)*900000; } const m=a.length%2?a[(a.length-1)/2]:(a[a.length/2-1]+a[a.length/2])/2; return Math.round(m/900000)*900000; }
 function computeDept(deptId, events, from, to){
   if(!isTuChot(deptId)) return computeDeptCore(deptId,events,from,to);
+  /* V1.6.3: ghép chuỗi cho từng người → PRE; các ngày TT chốt tay (không auto) giữ nguyên cách khung */
+  { const R=rulesOf(deptId); const pf=autoPrefill(deptId,from); const toMin=t=>{ const [h,m]=String(t||'0:0').split(':').map(Number); return h*60+m; }; R._groups=[{in:toMin(pf.inTime),out:toMin(pf.outTime)}].concat((pf.groups||[]).map(g=>({in:toMin(g.inTime),out:toMin(g.outTime)}))); const byNo={}; events.forEach(ev=>{ (byNo[String(ev.employeeNo)]=byNo[String(ev.employeeNo)]||[]).push(ev); }); const pre={}; for(const no in byNo){ const ss=chainSessions(byNo[no],R); const m={}; ss.forEach(x=>{ if(!m[x.date]||(x.outMs&&!m[x.date].outMs)) m[x.date]=x; }); pre[no]=m; } window.__preSess=window.__preSess||{}; window.__preSess[deptId]=pre; }
+  try{ return computeDeptAuto(deptId,events,from,to); } finally { if(window.__preSess) delete window.__preSess[deptId]; }
+}
+function computeDeptAuto(deptId, events, from, to){
   if(isTuNhom(deptId)){ /* lượt 1: ghép ca theo ngày (không khung) để lấy giờ vào/ra thật, rồi gom nhóm */
     const keysN=[]; const saved={}; for(let d=addDays(from,-1); d<=addDays(to,1); d=addDays(d,1)){ const k=deptId+'_'+d; const l=LINES[k]; if(l&&l.xc) continue; if(l&&l.inTime&&!l.auto){ continue; } saved[k]=l; delete LINES[k]; keysN.push(d); }
     const r0=computeDeptCore(deptId,events,from,to);
@@ -893,12 +919,13 @@ function computeDeptCore(deptId, events, from, to){
   for(const ev of events){ const b=byEmp[String(ev.employeeNo)]; if(b) b.scans.push(ev); }
   for(const no in byEmp){
     const b=byEmp[no]; const byDate={}; const used=new Set();
-    if(tuCham){ // (A1) ngày đã chốt giờ: khung giờ tổ trưởng; ngày chưa chốt: khung giờ mặc định của tổ (Cấu hình)
+    const PRE=window.__preSess&&window.__preSess[deptId]&&window.__preSess[deptId][no]; if(PRE){ Object.assign(byDate,PRE); b.scans.forEach(x=>used.add(x)); } /* V1.6.3: phiên đã ghép theo chuỗi */
+    if(tuCham&&!PRE){ // (A1) ngày đã chốt giờ: khung giờ tổ trưởng; ngày chưa chốt: khung giờ mặc định của tổ (Cấu hình)
       /* V1.4.1: ghép ngày đã chốt trước (ưu tiên), ngày chưa chốt lấy lượt còn dư; ngày Nghỉ ca (ca 24h) bỏ lượt lẻ */
       const dayList=[]; for(let d=addDays(from,-1); d<=addDays(to,1); d=addDays(d,1)) dayList.push(d);
       for(const d of dayList){ const l=lineOf(deptId,d); if(!l||l.xc) continue; const Ls=lineGroupsOf(deptId,l).map(v=>lineB(deptId,v,R)); let outMax=Math.max(...Ls.map(x=>x.outMs)); if(l._orig){ const lo=Object.assign({},l,{outTime:l._orig.outTime,outNextDay:l._orig.outNextDay,groups:l._orig.groups}); outMax=Math.max(outMax,...lineGroupsOf(deptId,lo).map(v=>lineB(deptId,v,R).outMs)); } /* V1.6.2: khung tìm quét ra theo giờ ra gốc, không co theo giờ tự chốt */ const L={inMs:Math.min(...Ls.map(x=>x.inMs)),outMs:outMax,nearIn:Ls.map(x=>x.inMs)}; const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } }
       for(const d of dayList){ if(byDate[d]) continue; const l=lineOf(deptId,d); if(l) continue; if(R._ca24&&byDate[addDays(d,-1)]) continue; const L={inMs:vnMs(d,'00:00'),outMs:vnMs(d,'00:00')+86400000-1,exact:true}; const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } } }
-    const ss=buildSessions(b.scans.filter(x=>!used.has(x)),R); // (A2) còn lại: ghép ca theo khoảng cách
+    const ss=PRE?[]:buildSessions(b.scans.filter(x=>!used.has(x)),R); // (A2) còn lại: ghép ca theo khoảng cách
     for(const s of ss){ if(byDate[s.date]) continue; if(tuCham&&R._ca24&&byDate[addDays(s.date,-1)]) continue; /* V1.4.1: ngày Nghỉ ca bỏ lượt lẻ */ if(!byDate[s.date]||(s.outMs&&!byDate[s.date].outMs)) byDate[s.date]=s; }
     for(let d=from; d<=to; d=addDays(d,1)){
       const a=ADJ[no+'_'+d];
@@ -948,7 +975,7 @@ async function loadCham(force){ CFILTER=null; if(force){ clearEvCache(); try{ aw
   if(!dept){ $('#cLine').innerHTML='<div class="note info">Chưa có bộ phận nào bật "Tổ trưởng tự chấm". Vào Cấu hình → tick "Tổ trưởng tự chấm (theo giờ tổ trưởng)" cho bộ phận cần dùng.</div>'; $('#cList').innerHTML=''; $('#cStat').innerHTML=''; $('#cFoot').innerHTML=''; return; }
   const emps=deptEmps(dept); const nos=emps.map(e=>String(e.employeeNo)); $('#cCount').textContent=nos.length+' NV';
   loadBox('#cList');
-  const ym=date.slice(0,7); try{ await Promise.all([loadEvents(nos,date,date,force), loadAdj(nos,ym+'-01',ym+'-'+pad(monthDays(ym))), loadLines(dept,date,date)]); }catch(e){ loadErr('#cList',e,'loadCham(true)'); return; }
+  const ym=date.slice(0,7); try{ await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(date,-6):date,date,force), loadAdj(nos,ym+'-01',ym+'-'+pad(monthDays(ym))), loadLines(dept,date,date)]); }catch(e){ loadErr('#cList',e,'loadCham(true)'); return; }
   CHAM=computeDept(dept,EVCACHE[[...nos].sort().join(',')+'|'+date+'|'+date],date,date); CHAMCTX={dept,date}; renderCham();
 }
 /* Ngày hiện tại và chưa tới giờ ra chuyền -> người chưa quét ra là đang làm, không phải lỗi */
@@ -1248,7 +1275,7 @@ async function loadDetail(force){
   if(dept==='__all'&&emps.length>40){ toast(`"${q}" khớp ${emps.length} người — gõ cụ thể hơn (tối đa 40).`,6000); return; }
   loadBox('#dtTbl');
   const nos=emps.map(e=>String(e.employeeNo)); const depts=[...new Set(emps.map(e=>e.boPhan))];
-  try{ var [ev]=await Promise.all([loadEvents(nos,from,to,force), loadAdj(nos,from,to), ...depts.filter(isTuCham).map(d=>loadLines(d,addDays(from,-1),addDays(to,1)))]); }catch(e){ loadErr('#dtTbl',e,'loadDetail(true)'); return; } /* V1.4.7: giờ TT ngày kề để ghép ca đúng như Tháng */
+  try{ var [ev]=await Promise.all([loadEvents(nos,depts.some(isTuChot)?addDays(from,-6):from,to,force), loadAdj(nos,from,to), ...depts.filter(isTuCham).map(d=>loadLines(d,addDays(from,-1),addDays(to,1)))]); }catch(e){ loadErr('#dtTbl',e,'loadDetail(true)'); return; } /* V1.4.7: giờ TT ngày kề để ghép ca đúng như Tháng */
   const byNo={}; for(const d of depts){ const r=computeDept(d,ev,addDays(from,-1),addDays(to,1)); for(const no in r) if(nos.includes(no)) byNo[no]=Object.assign(r[no],{dept:d}); } /* V1.6.2: tính thêm ngày kề để biết lượt thuộc ca hôm trước */
   const scansBy={}; ev.forEach(x=>{ (scansBy[String(x.employeeNo)]=scansBy[String(x.employeeNo)]||[]).push(x); });
   const rows=[]; const days=[]; for(let d=from; d<=to; d=addDays(d,1)) days.push(d);
@@ -1284,7 +1311,7 @@ async function loadMonth(force){ syncFrom($('#mDept')&&$('#mDept').value,$('#mMo
   const from=ym+'-01', to=ym+'-'+pad(monthDays(ym));
   loadBox('#mTbl','Đang tải dữ liệu tháng… (tổ đông có thể mất 5–10 giây)');
   const emps=deptEmps(dept); const nos=emps.map(e=>String(e.employeeNo));
-  let ev; try{ [ev]=await Promise.all([loadEvents(nos,from,to,force), loadAdj(nos,from,to), isTuCham(dept)?loadLines(dept,from,to):null]); }catch(e){ loadErr('#mTbl',e,'loadMonth(true)'); return; }
+  let ev; try{ [ev]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(from,-6):from,to,force), loadAdj(nos,from,to), isTuCham(dept)?loadLines(dept,from,to):null]); }catch(e){ loadErr('#mTbl',e,'loadMonth(true)'); return; }
   MONTH=computeDept(dept,ev,from,to); MONTHCTX={dept,ym,from,to}; renderMonth();
 }
 let MVIEW=localStorage.getItem('cc_mview')||'lam';
@@ -1431,7 +1458,7 @@ async function loadPay(){ syncFrom($('#pDept')&&$('#pDept').value,$('#pMonth')&&
   if(kieu!=='gio_he'&&kieu!=='thang_tc_gio'){ $('#pTbl').innerHTML=`<div class="note">Bộ phận này dùng kiểu "${KIEU[kieu]}" — bản V1 chưa tính. Đổi kiểu trong Cấu hình hoặc chờ bản sau.</div>`; return; }
   loadBox('#pTbl','Đang tải dữ liệu lương…');
   const from=ym+'-01', to=ym+'-'+pad(monthDays(ym)); const emps=deptEmps(dept); const nos=emps.map(e=>String(e.employeeNo));
-  let ev,pq; try{ [ev,pq]=await Promise.all([loadEvents(nos,from,to), loadAdj(nos,from,to), db.collection('payroll').where('ym','==',ym).get(), isTuCham(dept)?loadLines(dept,from,to):null]).then(r=>[r[0],r[2]]) }catch(e){ loadErr('#pTbl',e,'loadPay()'); return; }
+  let ev,pq; try{ [ev,pq]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(from,-6):from,to), loadAdj(nos,from,to), db.collection('payroll').where('ym','==',ym).get(), isTuCham(dept)?loadLines(dept,from,to):null]).then(r=>[r[0],r[2]]) }catch(e){ loadErr('#pTbl',e,'loadPay()'); return; }
   const pmap={}; let sl={}; pq.forEach(x=>{ const v=x.data(); if(v.kind==='sanluong'){ if(v.dept===dept) sl=v.muc||{}; } else if(v.employeeNo) pmap[v.employeeNo]=v; }); /* V1.5.4: mức sản lượng theo ngày của tổ */
   PAY={dept,ym,from,to,ev,rows:computeDept(dept,ev,from,to),pmap,sl}; PAYEDIT={}; SLEDIT=null; $('#pSave').disabled=true; renderPay();
 }
