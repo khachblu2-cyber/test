@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.5.8
+ Phiên bản : V1.5.9
  Ngày      : 21/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.5.9 – Sửa: tự chốt theo máy bỏ qua cụm khi giờ ra TT ≤ giờ vào mà chưa tick "Ra
+            hôm sau" (ca đêm 17:00→05:00) — giờ cap tính đúng sang ngày sau.
    V1.5.8 – Tự chốt theo máy áp cả ngày tổ trưởng đã chốt giờ (chưa Chốt ngày): giờ ra =
             lúc nhóm bắt đầu về, không vượt giờ TT chốt; Vào giữ theo TT. Ngày đã Chốt
             ngày giữ nguyên.
@@ -363,7 +365,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.5.8</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.5.9</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -857,7 +859,7 @@ function computeDept(deptId, events, from, to){
   const r1=computeDeptCore(deptId,events,from,to);
   for(const d of keys){ const l=LINES[deptId+'_'+d]; const outs=[]; for(const no in r1){ const x=r1[no].days[d]; if(x&&x.session&&x.session.outMs&&!x.isP) (outs[x.nhom||0]=outs[x.nhom||0]||[]).push(x.session.outMs); }
     if(l._orig){ l.outTime=l._orig.outTime; l.outNextDay=l._orig.outNextDay; l.groups=JSON.parse(JSON.stringify(l._orig.groups)); }
-    let changed=false; const capMs=(g)=>{ const v=g===0?{outTime:l._orig?l._orig.outTime:l.outTime,outNextDay:l._orig?l._orig.outNextDay:l.outNextDay}:(l._orig?l._orig.groups[g-1]:l.groups[g-1]); if(!v||!v.outTime) return Infinity; let o=vnMs(d,v.outTime); if(v.outNextDay) o+=86400000; return o; };
+    let changed=false; const capMs=(g)=>{ const v=g===0?{inTime:l.inTime,outTime:l._orig?l._orig.outTime:l.outTime,outNextDay:l._orig?l._orig.outNextDay:l.outNextDay}:(l._orig?l._orig.groups[g-1]:l.groups[g-1]); if(!v||!v.outTime) return Infinity; let o=vnMs(d,v.outTime); const i=vnMs(d,v.inTime||l.inTime); if(v.outNextDay||o<=i) o+=86400000; /* V1.5.9: ra ≤ vào = hôm sau dù chưa tick */ return o; };
     const apply=(g,med)=>{ if(med==null) return; if(med>capMs(g)) return; /* không vượt giờ TT chốt */ const day=vnDate(med), t=vnTime(med); if(g===0){ l.outTime=t; l.outNextDay=day!==d; } else if(l.groups[g-1]){ l.groups[g-1].outTime=t; l.groups[g-1].outNextDay=day!==d; } changed=true; };
     (outs||[]).forEach((arr,g)=>{ if(arr&&arr.length>=2) apply(g,medianRound15(arr)); }); l.autoMed=changed; }
   return computeDeptCore(deptId,events,from,to);
