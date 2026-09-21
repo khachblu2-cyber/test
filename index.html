@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.6.1
+ Phiên bản : V1.6.2
  Ngày      : 21/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,10 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.6.2 – Chi tiết quét: lượt thuộc ca hôm trước (ca đêm ra sáng nay) hiện xám, ghi
+            "ca dd/mm" thay vì gạch "lẻ"; tiêu đề ngày ghi đủ N1/N2 và "(hôm sau)".
+            Tự chốt theo máy: khung tìm lượt ra vẫn theo giờ ra gốc (+6h), không co theo
+            giờ nhóm về → người về muộn (10:41) không bị đẩy sang ngày sau.
    V1.6.1 – "Đang làm" xét theo giờ ra muộn nhất trong các nhóm (tổ 2 nhóm ngày/đêm
             không còn báo thiếu quét ra cho ca đêm đang làm).
    V1.6.0 – Cấu hình: ô "Tự nhận nhóm theo máy" — app gom người theo giờ vào (±1h) và
@@ -326,7 +330,7 @@ td.gv{background:#FFF8E1;font-weight:600}
 .line.xc{border-color:var(--muted);background:#EEF0F3}.line.closed{border-color:var(--moss);background:var(--moss-soft)}
 .stat{display:flex;gap:8px;padding:6px 12px;font-size:12px;color:var(--muted);flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--line);background:#fff}.stat b{color:var(--ink)}
 .stb{border:1px solid var(--line);background:#fff;border-radius:7px;padding:3px 8px;font:inherit;font-size:13px;cursor:pointer;color:inherit}.stb b{color:var(--ink)}.stb.on{background:var(--blue);color:#fff!important;border-color:var(--blue);font-weight:inherit}.stb .lg,.stb .sh{font-weight:inherit}.stb.on b{color:#fff}.csep{border-top:3px double var(--blue);margin:2px 0}
-.dsc{display:inline-block;padding:2px 6px;border-radius:5px;background:#EEF2F7;margin:1px 3px 1px 0;white-space:nowrap;font-size:12px}.dsc.in{background:#DFF2E0;color:#256B2C;font-weight:700}.dsc.out{background:#DBE7FB;color:#1F4B8F;font-weight:700}.dsc.stray{background:#F3F3F3;color:#888;text-decoration:line-through}.dsc small{color:inherit;opacity:.75}
+.dsc{display:inline-block;padding:2px 6px;border-radius:5px;background:#EEF2F7;margin:1px 3px 1px 0;white-space:nowrap;font-size:12px}.dsc.in{background:#DFF2E0;color:#256B2C;font-weight:700}.dsc.out{background:#DBE7FB;color:#1F4B8F;font-weight:700}.dsc.stray{background:#F3F3F3;color:#888;text-decoration:line-through}.dsc.prev{background:#F3F3F3;color:#999}.dsc small{color:inherit;opacity:.75}
 .loadbox{padding:18px 14px;text-align:center;color:var(--muted)}.loadbox.err{color:var(--rust);background:#FBE9E7;border-radius:8px;margin:8px}.loadbox .btn{margin-top:8px}
 .sh{display:none}.tag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;font-weight:700;vertical-align:1px}.tag.n1{background:#CFDCF2;color:var(--blue)}.tag.n2{background:#F3E2B3;color:var(--amber)}.tag.n3{background:var(--moss-soft);color:var(--moss)}.tag.n4{background:#EAD9F5;color:#6A3FA0}
 .tools{display:flex;gap:6px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);background:#fff;font-size:13px;flex-wrap:wrap}.tools .lbl{color:var(--muted)}
@@ -371,7 +375,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.1</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.2</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -874,7 +878,7 @@ function computeDept(deptId, events, from, to){
       LINES[k]=base; }
     return computeDeptCore(deptId,events,from,to);
   }
-  const keys=[]; for(let d=addDays(from,-1); d<=addDays(to,1); d=addDays(d,1)){ const k=deptId+'_'+d; const l=LINES[k]; if(l&&l.xc) continue; if(l&&(l.inTime)&&!l.auto){ if(l.closed) continue; if(!l._orig) l._orig={outTime:l.outTime,outNextDay:!!l.outNextDay,groups:JSON.parse(JSON.stringify(l.groups||[]))}; keys.push(d); continue; } /* V1.5.8: ngày TT đã chốt (chưa Chốt ngày) vẫn lấy giờ ra theo cụm nhóm, không vượt giờ TT */ LINES[k]=Object.assign(autoPrefill(deptId,d),l&&l.closed?{closed:true}:{},l&&l.bcNote?{bcNote:l.bcNote}:{}); keys.push(d); }
+  const keys=[]; for(let d=addDays(from,-1); d<=addDays(to,1); d=addDays(d,1)){ const k=deptId+'_'+d; const l=LINES[k]; if(l&&l.xc) continue; if(l&&(l.inTime)&&!l.auto){ if(l.closed) continue; if(!l._orig) l._orig={outTime:l.outTime,outNextDay:!!l.outNextDay,groups:JSON.parse(JSON.stringify(l.groups||[]))}; keys.push(d); continue; } /* V1.5.8: ngày TT đã chốt (chưa Chốt ngày) vẫn lấy giờ ra theo cụm nhóm, không vượt giờ TT */ const pf=autoPrefill(deptId,d); pf._orig={outTime:pf.outTime,outNextDay:!!pf.outNextDay,groups:JSON.parse(JSON.stringify(pf.groups||[]))}; LINES[k]=Object.assign(pf,l&&l.closed?{closed:true}:{},l&&l.bcNote?{bcNote:l.bcNote}:{}); keys.push(d); }
   const r1=computeDeptCore(deptId,events,from,to);
   for(const d of keys){ const l=LINES[deptId+'_'+d]; const outs=[]; for(const no in r1){ const x=r1[no].days[d]; if(x&&x.session&&x.session.outMs&&!x.isP) (outs[x.nhom||0]=outs[x.nhom||0]||[]).push(x.session.outMs); }
     if(l._orig){ l.outTime=l._orig.outTime; l.outNextDay=l._orig.outNextDay; l.groups=JSON.parse(JSON.stringify(l._orig.groups)); }
@@ -892,7 +896,7 @@ function computeDeptCore(deptId, events, from, to){
     if(tuCham){ // (A1) ngày đã chốt giờ: khung giờ tổ trưởng; ngày chưa chốt: khung giờ mặc định của tổ (Cấu hình)
       /* V1.4.1: ghép ngày đã chốt trước (ưu tiên), ngày chưa chốt lấy lượt còn dư; ngày Nghỉ ca (ca 24h) bỏ lượt lẻ */
       const dayList=[]; for(let d=addDays(from,-1); d<=addDays(to,1); d=addDays(d,1)) dayList.push(d);
-      for(const d of dayList){ const l=lineOf(deptId,d); if(!l||l.xc) continue; const Ls=lineGroupsOf(deptId,l).map(v=>lineB(deptId,v,R)); const L={inMs:Math.min(...Ls.map(x=>x.inMs)),outMs:Math.max(...Ls.map(x=>x.outMs)),nearIn:Ls.map(x=>x.inMs)}; const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } }
+      for(const d of dayList){ const l=lineOf(deptId,d); if(!l||l.xc) continue; const Ls=lineGroupsOf(deptId,l).map(v=>lineB(deptId,v,R)); let outMax=Math.max(...Ls.map(x=>x.outMs)); if(l._orig){ const lo=Object.assign({},l,{outTime:l._orig.outTime,outNextDay:l._orig.outNextDay,groups:l._orig.groups}); outMax=Math.max(outMax,...lineGroupsOf(deptId,lo).map(v=>lineB(deptId,v,R).outMs)); } /* V1.6.2: khung tìm quét ra theo giờ ra gốc, không co theo giờ tự chốt */ const L={inMs:Math.min(...Ls.map(x=>x.inMs)),outMs:outMax,nearIn:Ls.map(x=>x.inMs)}; const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } }
       for(const d of dayList){ if(byDate[d]) continue; const l=lineOf(deptId,d); if(l) continue; if(R._ca24&&byDate[addDays(d,-1)]) continue; const L={inMs:vnMs(d,'00:00'),outMs:vnMs(d,'00:00')+86400000-1,exact:true}; const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } } }
     const ss=buildSessions(b.scans.filter(x=>!used.has(x)),R); // (A2) còn lại: ghép ca theo khoảng cách
     for(const s of ss){ if(byDate[s.date]) continue; if(tuCham&&R._ca24&&byDate[addDays(s.date,-1)]) continue; /* V1.4.1: ngày Nghỉ ca bỏ lượt lẻ */ if(!byDate[s.date]||(s.outMs&&!byDate[s.date].outMs)) byDate[s.date]=s; }
@@ -1245,13 +1249,13 @@ async function loadDetail(force){
   loadBox('#dtTbl');
   const nos=emps.map(e=>String(e.employeeNo)); const depts=[...new Set(emps.map(e=>e.boPhan))];
   try{ var [ev]=await Promise.all([loadEvents(nos,from,to,force), loadAdj(nos,from,to), ...depts.filter(isTuCham).map(d=>loadLines(d,addDays(from,-1),addDays(to,1)))]); }catch(e){ loadErr('#dtTbl',e,'loadDetail(true)'); return; } /* V1.4.7: giờ TT ngày kề để ghép ca đúng như Tháng */
-  const byNo={}; for(const d of depts){ const r=computeDept(d,ev,from,to); for(const no in r) if(nos.includes(no)) byNo[no]=Object.assign(r[no],{dept:d}); }
+  const byNo={}; for(const d of depts){ const r=computeDept(d,ev,addDays(from,-1),addDays(to,1)); for(const no in r) if(nos.includes(no)) byNo[no]=Object.assign(r[no],{dept:d}); } /* V1.6.2: tính thêm ngày kề để biết lượt thuộc ca hôm trước */
   const scansBy={}; ev.forEach(x=>{ (scansBy[String(x.employeeNo)]=scansBy[String(x.employeeNo)]||[]).push(x); });
   const rows=[]; const days=[]; for(let d=from; d<=to; d=addDays(d,1)) days.push(d);
-  const usedBy={}; for(const no of nos){ const r=byNo[no]; if(!r) continue; const used=new Set(); Object.values(r.days).forEach(dd=>{ if(dd.session&&dd.session.scans) dd.session.scans.forEach(s=>used.add(s.ms)); }); usedBy[no]=used; }
+  const usedBy={}; for(const no of nos){ const r=byNo[no]; if(!r) continue; const used=new Map(); Object.keys(r.days).forEach(k=>{ const dd=r.days[k]; if(dd.session&&dd.session.scans) dd.session.scans.forEach(s=>used.set(s.ms,k)); }); usedBy[no]=used; }
   const order=[]; depts.forEach(dp=>deptEmps(dp).forEach(e=>{ if(nos.includes(String(e.employeeNo))) order.push(String(e.employeeNo)); })); nos.forEach(no=>{ if(!order.includes(no)) order.push(no); });
   for(const d of days){ for(const no of order){ const r=byNo[no]; if(!r) continue; const used=usedBy[no]; const dd=r.days[d]; if(!dd) continue; const nextD=addDays(d,1);
-      const sc=(scansBy[no]||[]).filter(x=>vnDate(x.ms)===d||(dd.out&&x.ms===dd.out&&vnDate(x.ms)===nextD)).sort((a,b)=>a.ms-b.ms).map(x=>({ms:x.ms,mac:x.mac,kind:x.ms===dd.in?'in':x.ms===dd.out?'out':used.has(x.ms)?'mid':'stray',next:vnDate(x.ms)!==d}));
+      const sc=(scansBy[no]||[]).filter(x=>vnDate(x.ms)===d||(dd.out&&x.ms===dd.out&&vnDate(x.ms)===nextD)).sort((a,b)=>a.ms-b.ms).map(x=>({ms:x.ms,mac:x.mac,kind:x.ms===dd.in?'in':x.ms===dd.out?'out':(used.has(x.ms)?(used.get(x.ms)===d?'mid':'prev'):'stray'),owner:used.get(x.ms),next:vnDate(x.ms)!==d}));
       const stray=sc.filter(x=>x.kind==='stray').length; const prob=dd.thieuRa||stray>0||(dd.warn&&dd.warn!=='du'&&dd.warn!=='tay');
       rows.push({date:d,no,emp:r.emp,dept:r.dept,d:dd,sc,stray,prob}); } }
   DETAIL={from,to,dept,q,rows,nDays}; renderDetail();
@@ -1264,14 +1268,14 @@ function renderDetail(){ if(!DETAIL) return; const {from,to,dept,rows,nDays}=DET
   $('#dtSum').style.display=''; $('#dtSum').innerHTML=`${fmtDateVN(from)} → ${fmtDateVN(to)} · ${single?esc(DEPTS[dept].ten):'Tất cả tổ'} · ${nPeople} người · ${nScan} lượt quét · <b>${nThieu} ngày thiếu quét ra</b> · <b>${nStray} lượt lẻ bị bỏ</b>${single?` · đã chốt ${chot.length}/${nDays} ngày`:''}${prob?` · đang lọc: ${list.length} dòng có vấn đề`:''}`;
   const col={g:'var(--moss)',a:'var(--amber)',r:'var(--rust)',m:'var(--muted)',b:'var(--blue)',t:'var(--teal)'};
   let h='<table><tr><th>Ngày</th><th class="l">Họ tên</th><th class="l">Các lượt quét trong ngày (máy)</th><th>Vào → Ra</th><th>Giờ máy</th><th class="l">Chấm</th></tr>'; let last='';
-  for(const r of list){ if(r.date!==last){ last=r.date; const l=single?lineOf(dept,r.date):null; h+=`<tr><td colspan="6" style="background:var(--paper,#F4F6F9);font-weight:700;text-align:left">${fmtDateVN(r.date)}${single?(l?(l.xc?' · XC cả tổ':` · giờ TT ${l.inTime} → ${l.outTime||''}${l.outNextDay?' hôm sau':''}${l.closed?' · đã chốt ngày':' · đã chốt giờ'}`):' · <span style="color:var(--rust)">chưa chốt giờ</span>'):''}</td></tr>`; }
-    const [txt,c]=detailChamText(r.d,r.dept); const chips=r.sc.length?r.sc.map(x=>`<span class="dsc ${x.kind}" title="${x.kind==='stray'?'lượt lẻ, không dùng':x.kind==='in'?'vào':x.kind==='out'?'ra':'giữa ca'}">${vnTime(x.ms)}${x.next?' <small>(+1)</small>':''} <small>${esc(devShort(x.mac))}</small></span>`).join(''):'<span class="small">không có lượt quét</span>';
+  for(const r of list){ if(r.date!==last){ last=r.date; const l=single?lineOf(dept,r.date):null; h+=`<tr><td colspan="6" style="background:var(--paper,#F4F6F9);font-weight:700;text-align:left">${fmtDateVN(r.date)}${single?(l?(l.xc?' · XC cả tổ':` · giờ TT ${lineGroupsOf(dept,l).map((v,i)=>(lineGroupsOf(dept,l).length>1?'N'+(i+1)+' ':'')+v.inTime+' → '+(v.outTime||'')+(v.outNextDay||(v.outTime&&v.outTime<=v.inTime)?' (hôm sau)':'')).join(' · ')}${l.closed?' · đã chốt ngày':(l.auto?' · tự chốt':' · đã chốt giờ')}`):' · <span style="color:var(--rust)">chưa chốt giờ</span>'):''}</td></tr>`; }
+    const [txt,c]=detailChamText(r.d,r.dept); const chips=r.sc.length?r.sc.map(x=>`<span class="dsc ${x.kind}" title="${x.kind==='stray'?'lượt lẻ, không dùng':x.kind==='in'?'vào':x.kind==='out'?'ra':x.kind==='prev'?'thuộc ca ngày '+(x.owner||'').slice(8,10)+'/'+(x.owner||'').slice(5,7):'giữa ca'}">${vnTime(x.ms)}${x.next?' <small>(+1)</small>':''} <small>${esc(devShort(x.mac))}</small>${x.kind==='prev'?` <small>ca ${(x.owner||'').slice(8,10)}/${(x.owner||'').slice(5,7)}</small>`:''}</span>`).join(''):'<span class="small">không có lượt quét</span>';
     h+=`<tr><td>${r.date.slice(8,10)}/${r.date.slice(5,7)}</td><td class="l stk" style="cursor:pointer" onclick="openAdj('${esc(r.no)}','${r.date}')">${esc(r.emp.name)}${!single?` <small class="small">${esc(DEPTS[r.dept]?DEPTS[r.dept].ten:'')}</small>`:''}</td><td class="l">${chips}</td><td>${r.d.in?vnTime(r.d.in)+' → '+(r.d.out?vnTime(r.d.out)+(vnDate(r.d.out)!==r.date?' (+1)':''):'<span style="color:var(--rust)">?</span>'):'—'}</td><td>${r.d.mh!=null?fmtH(r.d.mh):(r.d.in&&r.d.out?fmtH(r1((r.d.out-r.d.in)/3600000)):'—')}</td><td class="l" style="color:${col[c]};font-weight:600">${txt}</td></tr>`; }
   if(!list.length) h+='<tr><td colspan="6" class="small">Không có dòng nào.</td></tr>';
   $('#dtTbl').innerHTML=h+'</table>'; }
 function devShort(mac){ const lb=String(devLabel(mac)||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); const m=lb.match(/M?(\d+)\b/); return m?'M'+m[1]:(lb.slice(0,6)||'M?'); }
 function exportDetail(){ if(!DETAIL){ toast('Bấm Xem trước.'); return; } if(typeof XLSX==='undefined'){ toast('Chưa tải được thư viện Excel.'); return; } const {from,to,dept,rows}=DETAIL; const prob=$('#dtProb').checked; const list=prob?rows.filter(r=>r.prob):rows;
-  const data=list.map(r=>{ const [txt]=detailChamText(r.d,r.dept); return [fmtDateVN(r.date),r.emp.name,DEPTS[r.dept]?DEPTS[r.dept].ten:'',r.sc.map(x=>vnTime(x.ms)+(x.next?'(+1)':'')+' '+devShort(x.mac)+(x.kind==='stray'?' (lẻ)':'')).join(' · '),r.d.in?vnTime(r.d.in):'',r.d.out?vnTime(r.d.out)+(vnDate(r.d.out)!==r.date?' (+1)':''):(r.d.in?'?':''),r.d.mh!=null?r.d.mh:'',txt]; });
+  const data=list.map(r=>{ const [txt]=detailChamText(r.d,r.dept); return [fmtDateVN(r.date),r.emp.name,DEPTS[r.dept]?DEPTS[r.dept].ten:'',r.sc.map(x=>vnTime(x.ms)+(x.next?'(+1)':'')+' '+devShort(x.mac)+(x.kind==='stray'?' (lẻ)':x.kind==='prev'?' (ca '+(x.owner||'').slice(8,10)+'/'+(x.owner||'').slice(5,7)+')':'')).join(' · '),r.d.in?vnTime(r.d.in):'',r.d.out?vnTime(r.d.out)+(vnDate(r.d.out)!==r.date?' (+1)':''):(r.d.in?'?':''),r.d.mh!=null?r.d.mh:'',txt]; });
   const ws=XLSX.utils.aoa_to_sheet([[`CHI TIẾT QUÉT ${fmtDateVN(from)} → ${fmtDateVN(to)} · ${dept==='__all'?'Tất cả tổ':DEPTS[dept].ten}`],[],['Ngày','Họ tên','Tổ','Các lượt quét','Vào','Ra','Giờ máy','Chấm'],...data]); ws['!cols']=[{wch:12},{wch:24},{wch:18},{wch:60},{wch:8},{wch:12},{wch:9},{wch:36}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Chi tiết'); XLSX.writeFile(wb,`ChiTietQuet_${from}_${to}.xlsx`); }
 async function loadMonth(force){ syncFrom($('#mDept')&&$('#mDept').value,$('#mMonth')&&$('#mMonth').value);
