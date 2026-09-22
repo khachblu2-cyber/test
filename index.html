@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.6.6
+ Phiên bản : V1.6.7
  Ngày      : 22/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.6.7 – Ghép chuỗi (tổ tự chốt/tự nhóm): lượt RA chỉ nhận nếu ≤ giờ ra nhóm + 1h30 và
+            ≤ "Một ca tối đa"; lượt sau mốc là VÀO ca kế (vào trễ, ±3h quanh giờ vào nhóm).
    V1.6.6 – Giờ ra thuộc ngày khác hiện ngày cụ thể "(22/09)" thay cho "hôm sau"/"(+1)" ở
             Chấm công, hộp sửa, Hôm nay, Chi tiết quét, Excel chi tiết.
    V1.6.5 – Ghép chuỗi: xét từng nhóm cấu hình như 1 giả thuyết (lượt gần giờ vào nhóm là
@@ -387,7 +389,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.6</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.7</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -887,9 +889,10 @@ function chainSessions(scans,R){ const a=scans.slice().sort((x,y)=>x.ms-y.ms); c
      có nhiều ca đủ vào–ra nhất thắng, hoà thì ít lượt lẻ nhất, hoà nữa thì giờ vào/ra ổn định nhất. Người ca sáng và ca đêm
      có chuỗi 04:xx/17:xx giống nhau nhưng khác nhau ở lượt đầu/cuối và độ đều giờ ra → phân biệt được. */
   const groups=(R._groups||[]);
-  const byGroup=(gIn)=>{ const ss=[]; let cur=null; for(const x of sc){ const isIn=cdiff(tod(x.ms),gIn)<=120; if(isIn&&(!cur||x.ms-cur.inMs>gap)){ if(cur) ss.push(cur); cur={inS:x,outS:null,list:[x],inMs:x.ms}; } else if(cur&&x.ms-cur.inMs<=maxCa){ cur.outS=x; cur.list.push(x); } } if(cur) ss.push(cur); return ss.map(c=>mk(c.inS,c.outS,c.list)); };
+  /* V1.6.7: VÀO = lượt trong ±3h quanh giờ vào nhóm; RA chỉ nhận nếu ≤ giờ ra nhóm + 90' (không trễ hơn 05:00/17:00 quá 1h30) và ≤ maxCa sau vào; lượt sau mốc đó là vào của ca kế */
+  const byGroup=(g)=>{ const gIn=g.in, gOut=g.out; const ss=[]; let cur=null; const outOK=x=>{ const t=tod(x.ms); const late=((t-gOut)+1440)%1440; return late<=90||late>=1440-720; }; for(const x of sc){ const isIn=cdiff(tod(x.ms),gIn)<=180; if(isIn&&(!cur||x.ms-cur.inMs>gap)){ if(cur) ss.push(cur); cur={inS:x,outS:null,list:[x],inMs:x.ms}; } else if(cur&&x.ms-cur.inMs<=maxCa&&outOK(x)){ cur.outS=x; cur.list.push(x); } } if(cur) ss.push(cur); return ss.map(c=>mk(c.inS,c.outS,c.list)); };
   const score=ss=>{ const full=ss.filter(x=>x.outMs); const used=ss.reduce((p,x)=>p+x.scans.length,0); return {full:full.length,orph:sc.length-used,sp:std(full.map(x=>tod(x.inMs)))+std(full.map(x=>tod(x.outMs)))}; };
-  if(groups.length>=1){ let best=null,bs=null; for(const g of groups){ const ss=byGroup(g.in); const s=score(ss); if(!best||s.full>bs.full||(s.full===bs.full&&(s.orph<bs.orph||(s.orph===bs.orph&&s.sp<bs.sp)))){ best=ss; bs=s; } } return best; }
+  if(groups.length>=1){ let best=null,bs=null; for(const g of groups){ const ss=byGroup(g); const s=score(ss); if(!best||s.full>bs.full||(s.full===bs.full&&(s.orph<bs.orph||(s.orph===bs.orph&&s.sp<bs.sp)))){ best=ss; bs=s; } } return best; }
   /* không có nhóm cấu hình: ghép lần lượt từ lượt đầu */
   const out=[]; let i=0; while(i<sc.length){ const inS=sc[i]; let j=i; while(j+1<sc.length&&sc[j+1].ms-inS.ms<=maxCa) j++; out.push(mk(inS,j>i?sc[j]:null,sc.slice(i,j+1))); i=j+1; } return out; }
 function autoPrefill(deptId,d){ const R=rulesOf(deptId); const dm=isDiem(deptId); const inT=dm?(R.caVao||'05:00'):(R.chuyenVao||'07:00'); const outT=dm?(R.caHet||'16:00'):(R.chuyenRa||'17:00'); const l={deptId,date:d,inTime:inT,outTime:outT,outNextDay:outT<=inT,groups:[],auto:true};
