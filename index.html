@@ -1,8 +1,8 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.6.8
- Ngày      : 22/09/2026
+ Phiên bản : V1.7.1
+ Ngày      : 26/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
  Mục đích  : Xem chấm công từ 4 máy Hikvision (đẩy về qua Cloud
@@ -13,6 +13,14 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.7.1 – (1) Excel (Lương, Tháng, Chi tiết): họ tên hiện "Tên (Chức vụ)". (2) Lương tổ
+            tính điểm: cột Điểm → Ngày công (điểm ÷ 10). (3) Giới hạn tổ trưởng không đếm
+            P và XC. (4) Cấu hình cơm: "+1 phần khi TỔNG giờ ≥ x" + "áp dụng từ tháng".
+   V1.7.0 – Chuyển bộ phận có NGÀY HIỆU LỰC (lịch sử tổ từng người): tick "Giữ ở tổ cũ
+            đến hết tháng" = sang tổ mới từ 01 tháng sau; bỏ tick = ngày cụ thể, tháng đó
+            chia phần theo từng tổ (mỗi tổ tính theo kiểu lương của mình). Tháng/Lương ghi
+            nhãn "từ dd/mm"/"đến dd/mm", ô ngày thuộc tổ khác hiện "–". Nhập Excel Hik và
+            Gộp tổ cũng ghi lịch sử. Tổ hiện tại tự đổi khi tới ngày hiệu lực.
    V1.6.8 – Màu riêng: Giờ theo TT = xanh ngọc, Nhập tay = hồng (Chấm công, Tháng, Hôm
             nay, Chi tiết quét); nhãn "Giờ TT"/"Nhập tay" cạnh tên; Tổng tháng đếm riêng.
    V1.6.7 – Ghép chuỗi (tổ tự chốt/tự nhóm): lượt RA chỉ nhận nếu ≤ giờ ra nhóm + 1h30 và
@@ -391,7 +399,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.6.8</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.7.1</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -610,6 +618,8 @@ function computeMonth(days, rules, he){
 /* ===== LÕI CHẤM THEO CHUYỀN (V1.1.0) ===== */
 function floorHalf(h){ return Math.round(h*2)/2; } // làm tròn GẦN NHẤT 0,5h (tên giữ nguyên để không đổi nhiều chỗ)
 function lineBounds(line){ const inMs=vnMs(line.date,line.inTime); let outMs=vnMs(line.date,line.outTime); if(line.outNextDay||outMs<=inMs) outMs+=86400000; return {inMs,outMs,hours:r1((outMs-inMs)/3600000)}; }
+/* V1.7.1: +1 phần cơm khi tổng giờ làm trong ngày ≥ comGio2 (áp từ tháng comGio2Tu); không cộng dồn với phần TC thường */
+function applyComGio2(dd,R,date){ const g=Number(R.comGio2)||0; if(!g||!dd||dd.isP||dd.xc) return; if(R.comGio2Tu&&/^\d{4}-\d{2}$/.test(R.comGio2Tu)&&date.slice(0,7)<R.comGio2Tu) return; let h=0; if(dd.session&&dd.session.inMs&&dd.session.outMs) h=(dd.session.outMs-dd.session.inMs)/3600000; else if(dd.in&&dd.out) h=(dd.out-dd.in)/3600000; else h=(dd.gio||0)+(dd.tc||0); if(dd.mode==='tay'&&dd.in&&dd.out) h=(dd.out-dd.in)/3600000; if(h>=g){ const base=((dd.gio||0)>=(Number(R.comCoMat)||5)||h>=(Number(R.comCoMat)||5))?1:0; dd.com=Math.max(dd.com||0, base+1+((dd.tc||0)>=(Number(R.comK3)||5)?1:0)); } }
 function finishDay(d,h,R){ h=Math.max(0,r1(h)); d.gio=h; d.gioLam=Math.min(h,R.gioChuan); d.tc=r1(Math.max(h-R.gioChuan,0)); d.cong=h>=R.toiThieu?1:0; d.com=(h>=R.comCoMat?1:0)+(d.tc>=R.comTC?1:0)+(d.tc>=R.comK3?1:0); return d; }
 /* session: ca máy của ngày (có thể null) · line: {date,inTime,outTime,xc} hoặc null · adj: {mode,inTime,outTime,outNextDay,outTC,outTCNext,reason} */
 function computeDayChuyen(session, line, adj, rules){
@@ -824,9 +834,9 @@ async function loadBase(force){
   let cachedEmps=null; if(!force){ try{ const c=JSON.parse(localStorage.getItem('cc_base')||'null',tsRev); if(c&&c.v===3&&c.t&&Date.now()-c.t<BASE_TTL&&c.EMPS) cachedEmps=c.EMPS; }catch(e){} }
   /* V1.5.0: bộ phận (cấu hình) LUÔN tải mới; chỉ nhân viên dùng cache 12h */
   const d=await db.collection('departments').get(); DEPTS={}; d.forEach(x=>DEPTS[x.id]=x.data());
-  if(cachedEmps){ EMPS=cachedEmps; return; }
+  if(cachedEmps){ EMPS=cachedEmps; syncBoPhan(); return; }
   const e=await db.collection('employees').get(); EMPS={}; e.forEach(x=>EMPS[x.id]=Object.assign({employeeNo:x.id},x.data()));
-  saveBaseCache(true);
+  syncBoPhan(); saveBaseCache(true);
 }
 function fillDeptSelects(){
   const opts=myDepts().map(id=>`<option value="${id}">${esc(DEPTS[id].ten)}</option>`).join('');
@@ -837,7 +847,13 @@ function fillDeptSelects(){
 }
 /* V1.3.5: sắp các dòng kết quả theo thứ tự tab Nhân viên (Object khoá số tự xếp theo mã NV nên phải sắp lại) */
 function empRows(obj,deptId){ const idx={}; deptEmps(deptId).forEach((e,i)=>idx[String(e.employeeNo)]=i); return Object.values(obj||{}).sort((a,b)=>(idx[String(a.emp.employeeNo)]??9999)-(idx[String(b.emp.employeeNo)]??9999)); }
-function deptEmps(deptId){ return Object.values(EMPS).filter(e=>e.boPhan===deptId && e.active!==false).sort((a,b)=>(a.thuTu||9999)-(b.thuTu||9999)||String(a.employeeNo).localeCompare(String(b.employeeNo),undefined,{numeric:true})); }
+/* ===== V1.7.0: LỊCH SỬ BỘ PHẬN — e.deptHist = [{dept, from:'YYYY-MM-DD'}] tăng dần; deptAt(e,ngày) = tổ tại ngày đó; e.boPhan = tổ hiện tại (đồng bộ từ lịch sử) ===== */
+function deptAt(e,date){ const h=e&&e.deptHist; if(!Array.isArray(h)||!h.length) return e?(e.boPhan||''):''; let cur=h[0].dept; for(const x of h){ if(x.from<=date) cur=x.dept; else break; } return cur; }
+function histWith(e,newDept,from){ let h=Array.isArray(e.deptHist)&&e.deptHist.length?e.deptHist.map(x=>({dept:x.dept,from:x.from})):[{dept:e.boPhan||'',from:'2000-01-01'}]; h=h.filter(x=>x.from!==from); h.push({dept:newDept,from}); h.sort((a,b)=>a.from<b.from?-1:1); /* gộp mục trùng tổ liên tiếp */ const o=[]; for(const x of h){ if(o.length&&o[o.length-1].dept===x.dept) continue; o.push(x); } return o; }
+function inDeptRange(e,deptId,from,to){ if(e.active===false) return false; const h=e.deptHist; if(!Array.isArray(h)||!h.length) return e.boPhan===deptId; for(let i=0;i<h.length;i++){ if(h[i].dept!==deptId) continue; const a=h[i].from, b=i+1<h.length?addDays(h[i+1].from,-1):'9999-12-31'; if(a<=to&&b>=from) return true; } return false; }
+function syncBoPhan(){ const today=vnDate(Date.now()); let n=0; for(const no in EMPS){ const e=EMPS[no]; if(!Array.isArray(e.deptHist)||!e.deptHist.length) continue; const d=deptAt(e,today); if(d!==e.boPhan){ e.boPhan=d; n++; if(ME&&ME.role==='admin'&&db) db.collection('employees').doc(no).set({boPhan:d},{merge:true}).catch(()=>{}); } } return n; }
+function deptTag(e,dept,from,to){ const h=e.deptHist; if(!Array.isArray(h)||!h.length) return ''; const a=deptAt(e,from), b=deptAt(e,to); if(a===dept&&b===dept) return ''; const nm=id=>DEPTS[id]?DEPTS[id].ten:'—'; const ent=h.filter(x=>x.from>from&&x.from<=to); if(!ent.length) return ''; const x=ent[0]; const dd=x.from.slice(8,10)+'/'+x.from.slice(5,7); return x.dept===dept?`<span class="ttb k" title="trước ở ${esc(nm(deptAt(e,addDays(x.from,-1))))}">từ ${dd}</span>`:`<span class="ttb k" title="sang ${esc(nm(x.dept))}">đến ${addDays(x.from,-1).slice(8,10)+'/'+x.from.slice(5,7)}</span>`; }
+function deptEmps(deptId,from,to){ if(from){ to=to||from; return Object.values(EMPS).filter(e=>inDeptRange(e,deptId,from,to)).sort((a,b)=>(a.thuTu||9999)-(b.thuTu||9999)||String(a.employeeNo).localeCompare(String(b.employeeNo),undefined,{numeric:true})); } return Object.values(EMPS).filter(e=>e.boPhan===deptId && e.active!==false).sort((a,b)=>(a.thuTu||9999)-(b.thuTu||9999)||String(a.employeeNo).localeCompare(String(b.employeeNo),undefined,{numeric:true})); }
 function cachDiemOf(deptId){ const d=DEPTS[deptId]||{}; return d.cachDiem||(d.tcKhongBu?'khongbu':'cachuan'); }
 function rulesOf(deptId){ const R=Object.assign({},DEFAULT_RULES,(DEPTS[deptId]&&DEPTS[deptId].rules)||{}); const cd=cachDiemOf(deptId); R._khongBu=cd!=='cachuan'; R._khungTT=cd==='khungTT'; R._ca10=cd==='ca10'; R._ca24=!!(DEPTS[deptId]&&DEPTS[deptId].ca24); return R; }
 
@@ -927,7 +943,7 @@ function computeDeptAuto(deptId, events, from, to){
   return computeDeptCore(deptId,events,from,to);
 }
 function computeDeptCore(deptId, events, from, to){
-  const R=rulesOf(deptId); const emps=deptEmps(deptId); const byEmp={}; const tuCham=isTuCham(deptId); const diem=isDiem(deptId); const fn=dayFn(deptId);
+  const R=rulesOf(deptId); const emps=deptEmps(deptId,from,to); const byEmp={}; const tuCham=isTuCham(deptId); const diem=isDiem(deptId); const fn=dayFn(deptId);
   for(const e of emps) byEmp[e.employeeNo]={scans:[],days:{},emp:e};
   for(const ev of events){ const b=byEmp[String(ev.employeeNo)]; if(b) b.scans.push(ev); }
   for(const no in byEmp){
@@ -942,9 +958,10 @@ function computeDeptCore(deptId, events, from, to){
     for(const s of ss){ if(byDate[s.date]) continue; if(tuCham&&R._ca24&&byDate[addDays(s.date,-1)]) continue; /* V1.4.1: ngày Nghỉ ca bỏ lượt lẻ */ if(!byDate[s.date]||(s.outMs&&!byDate[s.date].outMs)) byDate[s.date]=s; }
     for(let d=from; d<=to; d=addDays(d,1)){
       const a=ADJ[no+'_'+d];
-      if(tuCham){ const l0=lineOf(deptId,d); const g=pickGroup(deptId,l0,byDate[d]||null,a&&a.nhom!=null?Number(a.nhom):null); b.days[d]=fn(byDate[d]||null, lineVariant(l0,g), a||null, R); b.days[d].nhom=g; b.days[d].nhomForced=!!(a&&a.nhom!=null);
+      if(b.emp.deptHist&&deptAt(b.emp,d)!==deptId){ b.days[d]={otherDept:deptAt(b.emp,d),gio:0,gioLam:0,tc:0,com:0,cong:0,diem:0,in:null,out:null,session:null,adj:null,vang:false}; continue; } /* V1.7.0: ngày thuộc tổ khác */
+      if(tuCham){ const l0=lineOf(deptId,d); const g=pickGroup(deptId,l0,byDate[d]||null,a&&a.nhom!=null?Number(a.nhom):null); b.days[d]=fn(byDate[d]||null, lineVariant(l0,g), a||null, R); applyComGio2(b.days[d],R,d); b.days[d].nhom=g; b.days[d].nhomForced=!!(a&&a.nhom!=null);
         if(R._ca24&&b.days[d].vang&&!a){ /* V1.3.8: ca 24h — hôm qua có đi làm → hôm nay Nghỉ ca */ const pd=addDays(d,-1); const pa=ADJ[no+'_'+pd]; const worked=byDate[pd]?true:!!(pa&&['comat','tay','chuyenDu'].includes(pa.mode)); const pl=lineOf(deptId,pd); if(worked&&!(pa&&pa.mode==='P')&&!(pl&&pl.xc)){ b.days[d].vang=false; b.days[d].nghiCa=true; } } }
-      else { b.days[d]=computeDay(byDate[d]||null, adjToMs(a), R); b.days[d].adj=a||null; b.days[d].session=byDate[d]||null; }
+      else { b.days[d]=computeDay(byDate[d]||null, adjToMs(a), R); b.days[d].adj=a||null; b.days[d].session=byDate[d]||null; applyComGio2(b.days[d],R,d); }
     }
     b.month=computeMonth(b.days,R,Number(b.emp.he)||1); b.month.p=0; b.month.may=0; b.month.warn=0; b.month.chuaChot=0; b.month.diem=0; b.month.mayChot=0; b.month.daChot=false; for(const k in b.days){ const x=b.days[k]; if(x.isP) b.month.p++; if(x.mh!=null) b.month.may+=x.mh; if(!x.chuaChot){ b.month.daChot=true; if(x.mh!=null) b.month.mayChot+=x.mh; } if(x.warn) b.month.warn++; if(x.chuaChot&&(x.in||x.mh)) b.month.chuaChot++; b.month.diem+=x.diem||0; } b.month.may=r1(b.month.may); b.month.mayChot=r1(b.month.mayChot); b.month.diem=r1(b.month.diem);
     if(diem){ const m=b.month; const luong=Number(b.emp.luongThang)||0; m.cong=r1(m.cong*10)/10; m.tienGio=Math.round(luong/30*m.cong*(R._khungTT?(Number(b.emp.he)||1):1)); /* V1.3.8: khung TT × hệ số */ m.tienTC=Math.round(m.tc*R.donGiaTC); m.tienBaoTay=m.ngayLam*(Number(R.baoTay)||0); m.tongTien=m.tienGio+m.tienTC+m.tienCom+m.tienBaoTay; m.luongThang=luong; }
@@ -986,12 +1003,13 @@ function clearEvCache(){ try{ Object.keys(localStorage).filter(k=>k.startsWith('
 async function loadCham(force){ CFILTER=null; if(force){ clearEvCache(); try{ await loadBase(true); fillDeptSelects(); }catch(e){ toast(errMsg(e),6000); } } /* V1.4.2: Làm mới xoá cache sự kiện */ syncFrom($('#cDeptSel')&&$('#cDeptSel').value,($('#cDate')&&$('#cDate').value||'').slice(0,7));
   const dept=$('#cDeptSel').value, date=$('#cDate').value;
   if(!dept){ $('#cLine').innerHTML='<div class="note info">Chưa có bộ phận nào bật "Tổ trưởng tự chấm". Vào Cấu hình → tick "Tổ trưởng tự chấm (theo giờ tổ trưởng)" cho bộ phận cần dùng.</div>'; $('#cList').innerHTML=''; $('#cStat').innerHTML=''; $('#cFoot').innerHTML=''; return; }
-  const emps=deptEmps(dept); const nos=emps.map(e=>String(e.employeeNo)); $('#cCount').textContent=nos.length+' NV';
+  const emps=deptEmps(dept,date,date); const nos=emps.map(e=>String(e.employeeNo)); $('#cCount').textContent=nos.length+' NV';
   loadBox('#cList');
   const ym=date.slice(0,7); let evC; try{ [evC]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(date,-6):date,date,force), loadAdj(nos,ym+'-01',ym+'-'+pad(monthDays(ym))), loadLines(dept,date,date)]); }catch(e){ loadErr('#cList',e,'loadCham(true)'); return; }
   CHAM=computeDept(dept,evC||[],date,date); CHAMCTX={dept,date}; renderCham(); /* V1.6.4: dùng đúng dữ liệu vừa tải */
 }
 /* Ngày hiện tại và chưa tới giờ ra chuyền -> người chưa quét ra là đang làm, không phải lỗi */
+function nameCv(e){ return e?(e.chucVu?`${e.name} (${e.chucVu})`:(e.name||'')):''; } /* V1.7.1: tên kèm chức vụ cho Excel */
 function dLbl(ms){ const d=vnDate(ms); return '('+d.slice(8,10)+'/'+d.slice(5,7)+')'; } /* V1.6.6: nhãn ngày cụ thể thay 'hôm sau' */
 function isLive(line,date){ if(!line||line.xc) return false; let out=lineBounds(line).outMs; (line.groups||[]).forEach(g=>{ if(g&&g.inTime&&g.outTime){ const v=Object.assign({},line,{inTime:g.inTime,outTime:g.outTime,outNextDay:!!g.outNextDay}); out=Math.max(out,lineBounds(v).outMs); } }); return Date.now()<out; } /* V1.6.1: đang làm xét theo giờ ra muộn nhất của các nhóm */
 function lineClosed(dept,date){ const l=lineOf(dept,date); return !!(l&&l.closed); }
@@ -1021,7 +1039,7 @@ function renderCham(){
   $('#cStat').innerHTML=`<label class="chk"><input type="checkbox" ${allOn?'checked':''} onchange="selAllCham(this.checked)"> Tất cả</label>${sb('co','Có mặt',c.co)}${sb('ok','Khớp',c.ok)}${live?sb('dangLam','Đang làm',c.dangLam,'var(--blue)'):''}${sb('warn','<span class="lg">Chưa xác nhận</span><span class="sh">Chưa XN</span>',c.warn,'var(--amber)')}${sb('xn','<span class="lg">Đã xác nhận</span><span class="sh">Đã XN</span>',c.xn,'var(--moss)')}${sb('thieu','<span class="lg">Chờ xử lý</span><span class="sh">Chờ</span>',c.thieu,'var(--rust)')}${sb('p','P',c.p)}${c.nghiCa?sb('nghiCa','Nghỉ ca',c.nghiCa,'var(--muted)'):''}${sb('vang','Vắng',c.vang)}${c.tc?`<span class="small">TC riêng <b>${c.tc}</b></span>`:''}`; $('#cFilterNote').innerHTML=CFILTER?`Đang lọc: <b>${CFILTER_LB[CFILTER]}</b> lên đầu · bấm lại số để bỏ lọc`:'';
   // V1.3.5: danh sách theo đúng thứ tự tab Nhân viên (không gom theo trạng thái)
   const order=d=>CFILTER?(CFILTER==='co'?(['p','nghiCa','vang'].includes(catOf(d))?1:0):(catOf(d)===CFILTER?0:1)):0; /* V1.4.0: bấm số → nhóm đó lên đầu */
-  const idx={}; deptEmps(dept).forEach((e,i)=>idx[String(e.employeeNo)]=i);
+  const idx={}; deptEmps(dept,date,date).forEach((e,i)=>idx[String(e.employeeNo)]=i);
   const sorted=[...rows].sort((a,b)=>order(a.days[date])-order(b.days[date])||(idx[String(a.emp.employeeNo)]??9999)-(idx[String(b.emp.employeeNo)]??9999));
   let nTop=CFILTER?sorted.filter(r=>order(r.days[date])===0).length:0;
   $('#cList').innerHTML=sorted.map((r,i)=>(CFILTER&&i===nTop&&nTop>0?'<div class="csep"></div>':'')+rowCham(r,date,line,i+1)).join('')||'<div class="small" style="padding:14px">Chưa có nhân viên trong tổ.</div>';
@@ -1075,7 +1093,7 @@ function showChamWarn(){ const {date}=CHAMCTX; const rows=Object.values(CHAM).fi
   openModal(`<h3>Cảnh báo ${fmtDateVN(date)}</h3><div class="sub">${rows.length} người cần xem</div>`+(rows.map(r=>{const d=r.days[date]; return `<div class="opt" onclick="closeModal();openCham('${esc(r.emp.employeeNo)}','${date}')"><span>${esc(r.emp.name)}</span><b style="font-size:13px;font-weight:600;color:${d.thieuRa?'var(--rust)':'var(--amber)'}">${d.thieuRa?'thiếu quét ra':d.warn==='tre'?'trễ '+fmtH(d.tre)+'h':d.warn==='som'?'sớm '+fmtH(d.som)+'h':d.warn==='xcLam'?'đi làm ngày XC':'khác máy'}</b></div>`;}).join('')||'<div class="small">Không có cảnh báo.</div>')+`<div class="btnrow"><button class="btn" onclick="closeModal()">Đóng</button></div>`); }
 
 
-const COUNTED_MODES=new Set(['chuyenDu','raChuyen','comat','tay','xcRieng']); function maxTT(dept){ return Number((rulesOf(dept).gioiHan)||0); }
+const COUNTED_MODES=new Set(['chuyenDu','raChuyen','comat','tay']); /* V1.7.1: P và XC không tính vào giới hạn */ function maxTT(dept){ return Number((rulesOf(dept).gioiHan)||0); }
 function ttCount(no,ym){ let c=0; for(const k in ADJ){ const a=ADJ[k]; if(String(a.employeeNo)===String(no)&&String(a.date||'').startsWith(ym)&&a.byRole==='totruong'&&COUNTED_MODES.has(a.mode)) c++; } return c; }
 /* Tổ trưởng: tối đa 3 ngày đổi giờ / người / tháng (không tính Giờ theo máy, P, Về mặc định, sửa lại cùng ngày) */
 function ttAllowed(no,date,mode){ const lim=maxTT(CHAMCTX?CHAMCTX.dept:(EMPS[no]&&EMPS[no].boPhan)); if(lim<=0||ME.role!=='totruong'||!COUNTED_MODES.has(mode)) return true; const ym=date.slice(0,7); const cur=ADJ[no+'_'+date]; if(cur&&cur.byRole==='totruong'&&COUNTED_MODES.has(cur.mode)) return true; return ttCount(no,ym)<lim; }
@@ -1195,7 +1213,7 @@ function shiftDay(n){ $('#dDate').value=addDays($('#dDate').value,n); loadToday(
 async function loadToday(force){ if(dSel.size===1) syncFrom([...dSel][0],'');
   const depts=selDepts(), date=$('#dDate').value;
   if(!depts.length){ $('#dList').innerHTML='<div class="note">Chưa có bộ phận. Vào Cấu hình tạo bộ phận và gán nhân viên.</div>'; return; }
-  const nos=[]; depts.forEach(d=>deptEmps(d).forEach(e=>nos.push(String(e.employeeNo)))); $('#dCount').textContent=nos.length+' NV';
+  const nos=[]; depts.forEach(d=>deptEmps(d,date,date).forEach(e=>nos.push(String(e.employeeNo)))); $('#dCount').textContent=nos.length+' NV';
   loadBox('#dList');
   let ev; try{ [ev]=await Promise.all([loadEvents(nos,date,date,force), loadAdj(nos,date,date)]); }catch(e){ loadErr('#dList',e,'loadToday(true)'); return; }
   TODAY={}; TODAYDEPTS=depts;
@@ -1316,7 +1334,7 @@ function renderDetail(){ if(!DETAIL) return; const {from,to,dept,rows,nDays}=DET
   $('#dtTbl').innerHTML=h+'</table>'; }
 function devShort(mac){ const lb=String(devLabel(mac)||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); const m=lb.match(/M?(\d+)\b/); return m?'M'+m[1]:(lb.slice(0,6)||'M?'); }
 function exportDetail(){ if(!DETAIL){ toast('Bấm Xem trước.'); return; } if(typeof XLSX==='undefined'){ toast('Chưa tải được thư viện Excel.'); return; } const {from,to,dept,rows}=DETAIL; const prob=$('#dtProb').checked; const list=prob?rows.filter(r=>r.prob):rows;
-  const data=list.map(r=>{ const [txt]=detailChamText(r.d,r.dept); return [fmtDateVN(r.date),r.emp.name,DEPTS[r.dept]?DEPTS[r.dept].ten:'',r.sc.map(x=>vnTime(x.ms)+(x.next?' '+dLbl(x.ms):'')+' '+devShort(x.mac)+(x.kind==='stray'?' (lẻ)':x.kind==='prev'?' (ca '+(x.owner||'').slice(8,10)+'/'+(x.owner||'').slice(5,7)+')':'')).join(' · '),r.d.in?vnTime(r.d.in):'',r.d.out?vnTime(r.d.out)+(vnDate(r.d.out)!==r.date?' '+dLbl(r.d.out):''):(r.d.in?'?':''),r.d.mh!=null?r.d.mh:'',txt]; });
+  const data=list.map(r=>{ const [txt]=detailChamText(r.d,r.dept); return [fmtDateVN(r.date),nameCv(r.emp),DEPTS[r.dept]?DEPTS[r.dept].ten:'',r.sc.map(x=>vnTime(x.ms)+(x.next?' '+dLbl(x.ms):'')+' '+devShort(x.mac)+(x.kind==='stray'?' (lẻ)':x.kind==='prev'?' (ca '+(x.owner||'').slice(8,10)+'/'+(x.owner||'').slice(5,7)+')':'')).join(' · '),r.d.in?vnTime(r.d.in):'',r.d.out?vnTime(r.d.out)+(vnDate(r.d.out)!==r.date?' '+dLbl(r.d.out):''):(r.d.in?'?':''),r.d.mh!=null?r.d.mh:'',txt]; });
   const ws=XLSX.utils.aoa_to_sheet([[`CHI TIẾT QUÉT ${fmtDateVN(from)} → ${fmtDateVN(to)} · ${dept==='__all'?'Tất cả tổ':DEPTS[dept].ten}`],[],['Ngày','Họ tên','Tổ','Các lượt quét','Vào','Ra','Giờ máy','Chấm'],...data]); ws['!cols']=[{wch:12},{wch:24},{wch:18},{wch:60},{wch:8},{wch:12},{wch:9},{wch:36}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Chi tiết'); XLSX.writeFile(wb,`ChiTietQuet_${from}_${to}.xlsx`); }
 async function loadMonth(force){ syncFrom($('#mDept')&&$('#mDept').value,$('#mMonth')&&$('#mMonth').value);
@@ -1324,7 +1342,7 @@ async function loadMonth(force){ syncFrom($('#mDept')&&$('#mDept').value,$('#mMo
   const dept=$('#mDept').value, ym=$('#mMonth').value; if(!dept||!ym) return;
   const from=ym+'-01', to=ym+'-'+pad(monthDays(ym));
   loadBox('#mTbl','Đang tải dữ liệu tháng… (tổ đông có thể mất 5–10 giây)');
-  const emps=deptEmps(dept); const nos=emps.map(e=>String(e.employeeNo));
+  const emps=deptEmps(dept,from,to); const nos=emps.map(e=>String(e.employeeNo));
   let ev; try{ [ev]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(from,-6):from,to,force), loadAdj(nos,from,to), isTuCham(dept)?loadLines(dept,from,to):null]); }catch(e){ loadErr('#mTbl',e,'loadMonth(true)'); return; }
   MONTH=computeDept(dept,ev,from,to); MONTHCTX={dept,ym,from,to}; renderMonth();
 }
@@ -1340,9 +1358,9 @@ function renderMonth(){
   for(let i=1;i<=n;i++) h+=`<th>${i}</th>`; h+='</tr>';
   if(tu){ h+=`<tr><td></td><td class="l stk" style="background:var(--paper);font-weight:600">Giờ tổ trưởng</td>`; for(let i=1;i<=n;i++){ const l=lineOf(dept,ym+'-'+pad(i)); if(!l) h+=`<td class="z">–</td>`; else if(l.xc) h+=`<td class="xc">XC</td>`; else if(dm){ const L=lineBoundsDiem(l,R); h+=`<td title="${l.inTime}–${vnTime(L.hetMs)}${L.tcLine?' TC đến '+l.outTime:''}">${R.diemDu||10}${L.tcLine?'+'+fmtH(L.tcLine):''}</td>`; } else if(soNhom(dept)>1){ h+=`<td title="${lineGroupsOf(dept,l).map(v=>v.inTime+'–'+v.outTime).join(' · ')}">${lineGroupsOf(dept,l).map(v=>v.inTime.replace(/^0/,'').replace(':00','')).join('/')}</td>`; } else { const L=lineBounds(l); const t=finishDay({},L.hours,R); h+=`<td title="${l.inTime}–${l.outTime}">${fmtH(t.gioLam)}${t.tc?'+'+fmtH(t.tc):''}</td>`; } } h+=`<td colspan="12" style="text-align:left;color:var(--muted)">tổ trưởng chốt mỗi ngày · – = chưa chốt</td></tr>`; }
   rows.forEach((r,ri)=>{ const e=r.emp,m=r.month; tot.gio+=m.gio;tot.gioLam+=m.gioLam;tot.tc+=m.tc;tot.cong+=m.cong;tot.xc+=m.xc;tot.com+=m.com;tot.thieu+=m.thieuRa;tot.adj+=m.dieuChinh; tot.tay+=m.nhapTay||0;tot.p+=m.p||0;tot.may+=m.may||0;tot.mayChot+=m.mayChot||0;tot.warn+=m.warn||0;tot.chuaChot+=m.chuaChot||0;
-    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)}</td>`;
+    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)} ${deptTag(e,dept,ym+'-01',ym+'-'+pad(n))}</td>`;
     for(let i=1;i<=n;i++){ const date=ym+'-'+pad(i); const d=r.days[date]; let cls='clk',txt='';
-      if(d.isP){cls+=' pp';txt='P';} else if(d.xc){cls+=' xc';txt='XC';} else if(d.chuaChot){cls+=(d.in?' r':' z');txt=d.mh!=null?fmtH(d.mh)+(dm&&d.mtc?' <small>+'+fmtH(d.mtc)+'</small>':''):d.in?'?':'0';} else if(d.thieuRa){cls+=' miss';txt='?';} else if(!d.in&&!d.gio){cls+=' z';txt='0';} else {txt=dm?fmtH(d.diem)+(d.tc?' <small>+'+fmtH(d.tc)+'</small>':''):fmtH(d.gio); if(d.mode==='tay') cls+=' tay'; else if(tu){ if(d.dieuChinh||(d.mode&&d.mode!=='chuyen')) cls+=' adj'; else if(d.warn||(d.mh!=null&&Math.abs(d.mh-d.gio)>0.5)) cls+=' w'; else cls+=' g'; } else if(d.dieuChinh) cls+=' adj';}
+      if(d.otherDept){cls+=' z';txt='–';} else if(d.isP){cls+=' pp';txt='P';} else if(d.xc){cls+=' xc';txt='XC';} else if(d.chuaChot){cls+=(d.in?' r':' z');txt=d.mh!=null?fmtH(d.mh)+(dm&&d.mtc?' <small>+'+fmtH(d.mtc)+'</small>':''):d.in?'?':'0';} else if(d.thieuRa){cls+=' miss';txt='?';} else if(!d.in&&!d.gio){cls+=' z';txt='0';} else {txt=dm?fmtH(d.diem)+(d.tc?' <small>+'+fmtH(d.tc)+'</small>':''):fmtH(d.gio); if(d.mode==='tay') cls+=' tay'; else if(tu){ if(d.dieuChinh||(d.mode&&d.mode!=='chuyen')) cls+=' adj'; else if(d.warn||(d.mh!=null&&Math.abs(d.mh-d.gio)>0.5)) cls+=' w'; else cls+=' g'; } else if(d.dieuChinh) cls+=' adj';}
       h+=`<td class="${cls}" onclick="openAdj('${esc(e.employeeNo)}','${date}')" title="${d.in?vnTime(d.in)+' → '+(d.out?vnTime(d.out):'?'):''}${d.mh!=null?' · máy '+fmtH(d.mh)+'h':''}${d.adj&&d.adj.reason?' · '+esc(d.adj.reason):''}">${txt}</td>`; }
     const lech=tu?r1(m.gio-m.mayChot):0; const noChot=tu&&!m.daChot;
     h+=`<td class="tot">${fmtH(m.gio)}</td><td>${dm?fmtH(m.cong):fmtH(m.gioLam)}</td><td>${fmtH(m.tc)}</td>${lite?'':`${dm?'':`<td>${m.cong}</td>`}<td>${m.xc}</td>${tu?`<td>${m.p||0}</td>`:''}<td>${m.com}</td><td>${m.abc}</td>${tu?(noChot?`<td>${fmtH(m.may)}</td><td>–</td><td>–</td>`:`<td>${fmtH(m.may)}</td><td>${fmtH(m.gio)}</td><td class="${Math.abs(lech)>0.5?'w':''}">${lech>0?'+':''}${fmtH(lech)}</td>`):`<td class="${m.dieuChinh?'adj':''}">${m.dieuChinh||''}</td>`}`}</tr>`; });
@@ -1354,8 +1372,8 @@ function renderMonth(){
 }
 async function setHe(no,v){ const he=Number(String(v).replace(',','.'))||1; try{ await db.collection('employees').doc(no).set({he,updatedAt:TS.now(),updatedBy:ME.username},{merge:true}); }catch(e){ toast(errMsg(e),8000); return; } EMPS[no].he=he; toast('Hệ '+no+' = '+he); if(MONTH&&MONTH[no]){ MONTH[no].month=computeMonth(MONTH[no].days,rulesOf(MONTHCTX.dept),he); const m=MONTH[no].month; m.p=0;m.may=0;m.warn=0;m.chuaChot=0; for(const k in MONTH[no].days){ const x=MONTH[no].days[k]; if(x.isP) m.p++; if(x.mh!=null) m.may+=x.mh; if(x.warn) m.warn++; if(x.chuaChot&&(x.in||x.mh)) m.chuaChot++; } m.may=r1(m.may); renderMonth(); } }
 /* ---- bảng Giờ làm / Điểm ---- */
-function cellCls(d,tu,dm){ let cls='clk'; if(d.isP) cls+=' pp'; else if(d.xc) cls+=' xc'; else if(d.chuaChot) cls+=(d.in?' r':' z'); else if(d.thieuRa) cls+=' miss'; else if(!d.in&&!d.gio) cls+=' z'; else if(d.mode==='tay') cls+=' tay'; else if(tu){ if(d.dieuChinh||(d.mode&&d.mode!=='chuyen')) cls+=' adj'; else if(d.warn||(d.mh!=null&&Math.abs(d.mh-(dm?d.diem:d.gio))>0.5)) cls+=' w'; else cls+=' g'; } else if(d.dieuChinh) cls+=' adj'; return cls; } /* V1.5.2: TT đã chỉnh = xanh ngọc; V1.6.8: nhập tay = hồng */
-function cellTitle(d,dm){ return (d.in?vnTime(d.in)+' → '+(d.out?vnTime(d.out):'?'):'')+(d.mh!=null?' · máy '+fmtH(d.mh)+(dm?' điểm':'h')+(d.mtc?' + TC '+fmtH(d.mtc)+'h':''):'')+(d.adj&&d.adj.reason?' · '+d.adj.reason:''); }
+function cellCls(d,tu,dm){ let cls='clk'; if(d.otherDept) return 'z'; if(d.isP) cls+=' pp'; else if(d.xc) cls+=' xc'; else if(d.chuaChot) cls+=(d.in?' r':' z'); else if(d.thieuRa) cls+=' miss'; else if(!d.in&&!d.gio) cls+=' z'; else if(d.mode==='tay') cls+=' tay'; else if(tu){ if(d.dieuChinh||(d.mode&&d.mode!=='chuyen')) cls+=' adj'; else if(d.warn||(d.mh!=null&&Math.abs(d.mh-(dm?d.diem:d.gio))>0.5)) cls+=' w'; else cls+=' g'; } else if(d.dieuChinh) cls+=' adj'; return cls; } /* V1.5.2: TT đã chỉnh = xanh ngọc; V1.6.8: nhập tay = hồng */
+function cellTitle(d,dm){ if(d.otherDept) return 'Ngày này thuộc tổ '+(DEPTS[d.otherDept]?DEPTS[d.otherDept].ten:'khác'); return (d.in?vnTime(d.in)+' → '+(d.out?vnTime(d.out):'?'):'')+(d.mh!=null?' · máy '+fmtH(d.mh)+(dm?' điểm':'h')+(d.mtc?' + TC '+fmtH(d.mtc)+'h':''):'')+(d.adj&&d.adj.reason?' · '+d.adj.reason:''); }
 function renderMonthLam(){
   const {ym,dept}=MONTHCTX; const n=monthDays(ym); const rows=empRows(MONTH,dept); const R=rulesOf(dept); const tu=isTuCham(dept), dm=isDiem(dept), lite=ME.role==='totruong';
   const tot={v:0,cong:0,xc:0,p:0,thieu:0,chua:0,adj:0,tay:0};
@@ -1363,8 +1381,8 @@ function renderMonthLam(){
   for(let i=1;i<=n;i++) h+=`<th>${i}</th>`; h+='</tr>';
   if(tu){ h+=`<tr><td></td><td class="l stk gv">${dm?'GIỜ VÔ – RA TT':'GIỜ VÔ'}</td>`; for(let i=1;i<=n;i++){ const l=lineOf(dept,ym+'-'+pad(i)); const gv=l&&!l.xc?lineGroupsOf(dept,l).map(v=>v.inTime.replace(/^0/,'').replace(':00','')).join('/'):''; h+=`<td class="gv ${l&&l.xc?'xc':''}">${!l?'–':l.xc?'XC':l.autoNhom?(l.groups.length+1)+' nhóm*':(dm?gv+'–'+vnTime(lineBoundsDiem(l,R).hetMs).replace(/^0/,'').replace(':00',''):(soNhom(dept,l)>1?gv:l.inTime))+(l.auto?'*':'')}</td>`; } h+=`<td class="tot" colspan="6" style="text-align:left;color:var(--muted)">giờ vào tổ trưởng đã chốt${soNhom(dept)>1?' (N1/N2…)':''} · – = chưa chốt</td></tr>`; }
   rows.forEach((r,ri)=>{ const e=r.emp,m=r.month; const v=dm?m.diem:m.gioLam; tot.v+=v; tot.cong+=m.cong; tot.xc+=m.xc; tot.p+=m.p||0; tot.thieu+=m.thieuRa; tot.adj+=m.dieuChinh||0; tot.tay+=m.nhapTay||0; tot.chua+=m.chuaChot||0;
-    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)}</td>`;
-    for(let i=1;i<=n;i++){ const date=ym+'-'+pad(i); const d=r.days[date]; const txt=d.isP?'P':d.xc?'XC':d.chuaChot?(d.mh!=null?fmtH(dm?d.mh:Math.min(d.mh,R.gioChuan)):d.in?'?':'0'):d.thieuRa?'?':(!d.in&&!d.gio)?'0':d.nghiCa?'–':(dm&&d.diem>=(R.diemDu||10)-1e-9)?`<b style="color:var(--blue)">${(R.diemDu||10)>=20?'XX':'X'}</b>`:fmtH(dm?d.diem:d.gioLam);
+    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)} ${deptTag(e,dept,ym+'-01',ym+'-'+pad(n))}</td>`;
+    for(let i=1;i<=n;i++){ const date=ym+'-'+pad(i); const d=r.days[date]; const txt=d.otherDept?'–':d.isP?'P':d.xc?'XC':d.chuaChot?(d.mh!=null?fmtH(dm?d.mh:Math.min(d.mh,R.gioChuan)):d.in?'?':'0'):d.thieuRa?'?':(!d.in&&!d.gio)?'0':d.nghiCa?'–':(dm&&d.diem>=(R.diemDu||10)-1e-9)?`<b style="color:var(--blue)">${(R.diemDu||10)>=20?'XX':'X'}</b>`:fmtH(dm?d.diem:d.gioLam);
       h+=`<td class="${cellCls(d,tu,dm)}" onclick="openAdj('${esc(e.employeeNo)}','${date}')" title="${esc(cellTitle(d,dm))}">${txt}</td>`; }
     let nh=''; if(soNhom(dept)>1){ const cnt={}; for(const k in r.days){ const x=r.days[k]; if(x.in) cnt[x.nhom||0]=(cnt[x.nhom||0]||0)+1; } nh=Object.keys(cnt).sort().map(g=>'N'+(Number(g)+1)+(Object.keys(cnt).length>1?' '+cnt[g]:'')).join(' / '); }
     h+=`<td class="tot">${fmtH(v)}</td><td>${fmtH(m.cong)}</td><td>${m.xc}</td><td>${m.p||0}</td>${lite?'':`<td>${m.abc}</td>`}${soNhom(dept)>1?`<td>${nh}</td>`:''}</tr>`; });
@@ -1380,8 +1398,8 @@ function renderMonthTC(){
   const hm=t=>t.replace(/^0/,'').replace(':00','');
   if(tu){ h+=`<tr><td></td><td class="l stk gv">${dm?'TC TỪ – ĐẾN':'GIỜ VÔ TC'}</td>`; for(let i=1;i<=n;i++){ const l=lineOf(dept,ym+'-'+pad(i)); let t='–'; if(l&&l.xc) t='XC'; else if(l){ if(dm){ const L=lineBoundsDiem(l,R); t=L.tcLine?hm(R.caHet||'16:00')+'–'+hm(l.outTime):'–'; } else { const L=lineBounds(l); t=vnTime(L.inMs+R.gioChuan*3600000); } } h+=`<td class="gv ${l&&l.xc?'xc':''}">${t}</td>`; } h+=`<td class="tot" colspan="3" style="text-align:left;color:var(--muted)">${dm?'giờ ra tổ trưởng chốt · – = không TC':'= giờ vào + '+R.gioChuan+'h'}</td></tr>`; }
   rows.forEach((r,ri)=>{ const e=r.emp,m=r.month; let c1=0,c3=0; for(const k in r.days){ const d=r.days[k]; if(d.tc>=(R.comTC||0.5)) c1++; if(d.tc>=(R.comK3||5)) c3++; } tot.tc+=m.tc; tot.c1+=c1; tot.c3+=c3;
-    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)}</td>`;
-    for(let i=1;i<=n;i++){ const date=ym+'-'+pad(i); const d=r.days[date]; const txt=d.isP?'P':d.xc?'XC':d.chuaChot?(d.mtc!=null?fmtH(d.mtc):d.mh!=null?fmtH(Math.max(0,d.mh-R.gioChuan)):(d.in?'?':'0')):d.thieuRa?'?':fmtH(d.tc||0);
+    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)} ${deptTag(e,dept,ym+'-01',ym+'-'+pad(n))}</td>`;
+    for(let i=1;i<=n;i++){ const date=ym+'-'+pad(i); const d=r.days[date]; const txt=d.otherDept?'–':d.isP?'P':d.xc?'XC':d.chuaChot?(d.mtc!=null?fmtH(d.mtc):d.mh!=null?fmtH(Math.max(0,d.mh-R.gioChuan)):(d.in?'?':'0')):d.thieuRa?'?':fmtH(d.tc||0);
       h+=`<td class="${cellCls(d,tu,dm)}" onclick="openAdj('${esc(e.employeeNo)}','${date}')" title="${esc(cellTitle(d,dm))}">${txt}</td>`; }
     h+=`<td class="tot">${fmtH(m.tc)}</td><td>${c1}</td><td>${c3}</td></tr>`; });
   h+=`<tr><td class="tot"></td><td class="l stk tot">Tổng (${rows.length} NV)</td><td class="tot" colspan="${n}"></td><td class="tot">${fmtH(tot.tc)}</td><td class="tot">${tot.c1}</td><td class="tot">${tot.c3}</td></tr></table>`;
@@ -1394,16 +1412,16 @@ function exportMonth(){
   // Sheet 1: Chấm công — giống mẫu tổ trưởng: dòng GIỜ VÔ + số giờ/điểm mỗi ngày
   const gioVo=days.map(i=>{ const l=lineOf(dept,ym+'-'+pad(i)); return l?(l.xc?'XC':l.inTime):''; });
   const hdr1=['STT','Họ và tên',...days.map(String),dm?'Tổng điểm':'Tổng giờ',dm?'Công':'Giờ làm','Ngày công','XC','P','Cơm','ABC'];
-  const rows1=empRows(MONTH,dept).map((r,i)=>{ const m=r.month; return [i+1,r.emp.name,...days.map(k=>cell(r.days[ym+'-'+pad(k)])),m.gio,dm?m.cong:m.gioLam,m.cong,m.xc,m.p||0,m.com,m.abc]; });
+  const rows1=empRows(MONTH,dept).map((r,i)=>{ const m=r.month; return [i+1,nameCv(r.emp),...days.map(k=>cell(r.days[ym+'-'+pad(k)])),m.gio,dm?m.cong:m.gioLam,m.cong,m.xc,m.p||0,m.com,m.abc]; });
   const ws1=XLSX.utils.aoa_to_sheet([[`BẢNG CHẤM CÔNG ${ten} — THÁNG ${mm}`],[dm?'Ô = điểm (10 điểm = 1 công) · P nghỉ phép · XC xả ca · ? thiếu quét ra':'Ô = giờ làm (tối đa '+R.gioChuan+'h) · P nghỉ phép · XC xả ca · ? thiếu quét ra'],['','GIỜ VÔ',...gioVo],hdr1,...rows1]);
   XLSX.utils.book_append_sheet(wb,ws1,'Chấm công');
   if(tu){ // Sheet 2: Tăng ca
     const tcVo=days.map(i=>{ const l=lineOf(dept,ym+'-'+pad(i)); if(!l||l.xc) return ''; if(dm) return l.hetTime||R.caHet; const L=lineBounds(l); return vnTime(L.inMs+R.gioChuan*3600000); });
-    const rows2=empRows(MONTH,dept).map((r,i)=>{ const m=r.month; return [i+1,r.emp.name,...days.map(k=>{ const d=r.days[ym+'-'+pad(k)]; return d.isP?'P':d.xc?'XC':d.thieuRa?'?':(d.tc||0); }),m.tc]; });
+    const rows2=empRows(MONTH,dept).map((r,i)=>{ const m=r.month; return [i+1,nameCv(r.emp),...days.map(k=>{ const d=r.days[ym+'-'+pad(k)]; return d.isP?'P':d.xc?'XC':d.thieuRa?'?':(d.tc||0); }),m.tc]; });
     const ws2=XLSX.utils.aoa_to_sheet([[`BẢNG TĂNG CA ${ten} — THÁNG ${mm}`],['Ô = giờ tăng ca (làm tròn 0,5h)'],['','GIỜ VÔ TC',...tcVo],['STT','Họ và tên',...days.map(String),'Tổng TC (giờ)'],...rows2]);
     XLSX.utils.book_append_sheet(wb,ws2,'Tăng ca');
     // Sheet 3: đối chiếu máy
-    const rows3=empRows(MONTH,dept).map((r,i)=>{ const m=r.month; return [i+1,r.emp.name,m.may,m.gio,r1(m.gio-m.may),m.dieuChinh]; });
+    const rows3=empRows(MONTH,dept).map((r,i)=>{ const m=r.month; return [i+1,nameCv(r.emp),m.may,m.gio,r1(m.gio-m.may),m.dieuChinh]; });
     XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([[`ĐỐI CHIẾU MÁY — ${ten} — THÁNG ${mm}`],[],['STT','Họ và tên',dm?'Máy (điểm)':'Máy (giờ)',dm?'Chấm (điểm)':'Chấm (giờ)','Lệch','Số điều chỉnh'],...rows3]),'Đối chiếu máy');
   }
   XLSX.writeFile(wb,`ChamCong-${slug(DEPTS[dept].ten)}-${ym}.xlsx`);
@@ -1421,7 +1439,7 @@ function shiftBCDay(n){ $('#bDate').value=addDays($('#bDate').value,n); loadBC()
 async function loadBC(force){
   const date=$('#bDate').value, depts=bcDepts(); if(!depts.length){ $('#bcTbl').innerHTML='<div class="note">Chưa có bộ phận.</div>'; return; }
   loadBox('#bcTbl','Đang tổng hợp '+depts.length+' bộ phận…');
-  const nos=[]; depts.forEach(d=>deptEmps(d).forEach(e=>nos.push(String(e.employeeNo))));
+  const nos=[]; depts.forEach(d=>deptEmps(d,date,date).forEach(e=>nos.push(String(e.employeeNo))));
   let evB; try{ [evB]=await Promise.all([loadEvents(nos,depts.some(isTuChot)?addDays(date,-6):date,date,force), loadAdj(nos,date,date), ...depts.map(d=>loadLines(d,date,date))]); }catch(e){ loadErr('#bcTbl',e,'loadBC(true)'); return; } /* V1.4.1: tải lines mọi tổ để lấy ghi chú */
   const ev=evB||[]; const since=vnMs(addDays(date,-7),'00:00');
   BC={date,rows:[]};
@@ -1471,7 +1489,7 @@ async function loadPay(){ syncFrom($('#pDept')&&$('#pDept').value,$('#pMonth')&&
   const kieu=(DEPTS[dept].kieu)||'gio_he'; $('#pKieu').textContent=KIEU[kieu];
   if(kieu!=='gio_he'&&kieu!=='thang_tc_gio'){ $('#pTbl').innerHTML=`<div class="note">Bộ phận này dùng kiểu "${KIEU[kieu]}" — bản V1 chưa tính. Đổi kiểu trong Cấu hình hoặc chờ bản sau.</div>`; return; }
   loadBox('#pTbl','Đang tải dữ liệu lương…');
-  const from=ym+'-01', to=ym+'-'+pad(monthDays(ym)); const emps=deptEmps(dept); const nos=emps.map(e=>String(e.employeeNo));
+  const from=ym+'-01', to=ym+'-'+pad(monthDays(ym)); const emps=deptEmps(dept,from,to); const nos=emps.map(e=>String(e.employeeNo));
   let ev,pq; try{ [ev,pq]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(from,-6):from,to), loadAdj(nos,from,to), db.collection('payroll').where('ym','==',ym).get(), isTuCham(dept)?loadLines(dept,from,to):null]).then(r=>[r[0],r[2]]) }catch(e){ loadErr('#pTbl',e,'loadPay()'); return; }
   const pmap={}; let sl={}; pq.forEach(x=>{ const v=x.data(); if(v.kind==='sanluong'){ if(v.dept===dept) sl=v.muc||{}; } else if(v.employeeNo) pmap[v.employeeNo]=v; }); /* V1.5.4: mức sản lượng theo ngày của tổ */
   PAY={dept,ym,from,to,ev,rows:computeDept(dept,ev,from,to),pmap,sl}; PAYEDIT={}; SLEDIT=null; $('#pSave').disabled=true; renderPay();
@@ -1497,7 +1515,7 @@ function renderPay(){
   let h=payFilterBar(all,list)+`<table><tr><th>STT</th><th class="l stk">Họ tên</th><th>Hệ</th><th>Giờ làm</th><th>TC</th><th>Ngày đi làm</th><th>XC</th><th>Công<br><small>xét ABC</small></th><th>Cơm</th><th>Tiền giờ<br><small>${fmtN(R.donGiaGio)}đ</small></th><th>Tiền TC<br><small>${fmtN(R.donGiaTC)}đ</small></th><th>Tiền cơm</th>${bt?`<th>Bao<br>tay</th><th>Tiền bao tay<br><small>${fmtN(R.baoTay)} × ngày</small></th>`:''}<th>Chuyên cần<br><small>nhập tay</small></th><th>Bù / khác</th><th>Tổng</th><th>Bảo hiểm</th><th>Thực lĩnh</th><th>Ghi chú</th></tr>`;
   list.forEach((r,ri)=>{ const e=r.emp,m=r.month; const p=payRow(e,pmap); const cc=Number(p.chuyenCan||0); const tong=m.tongTien+Number(p.bu||0)+cc; const thuc=Math.round(tong/1000)*1000-Number(p.baoHiem||0);
     T.gioLam+=m.gioLam;T.tc+=m.tc;T.ngayLam+=m.ngayLam;T.xc+=m.xc;T.cong+=m.cong;T.com+=m.com;T.tienGio+=m.tienGio;T.tienTC+=m.tienTC;T.tienCom+=m.tienCom;T.baoTay+=m.tienBaoTay;T.cc+=cc;T.bu+=Number(p.bu||0);T.tong+=tong;T.bh+=Number(p.baoHiem||0);T.thuc+=thuc;
-    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)}</td><td>${heInput(e)}</td><td>${fmtH(m.gioLam)}</td><td>${fmtH(m.tc)}</td><td>${m.ngayLam}</td><td>${m.xc}</td><td><b>${fmtH(m.cong)}</b></td><td>${m.com}</td><td class="num">${fmtN(m.tienGio)}</td><td class="num">${fmtN(m.tienTC)}</td><td class="num">${fmtN(m.tienCom)}</td>${bt?`<td>${btInput(e)}</td><td class="num">${fmtN(m.tienBaoTay)}</td>`:''}<td>${ccInput(e,p)}</td>${payInputs(e,p,tong,thuc)}</tr>`; });
+    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)} ${deptTag(e,dept,ym+'-01',ym+'-'+pad(monthDays(ym)))}</td><td>${heInput(e)}</td><td>${fmtH(m.gioLam)}</td><td>${fmtH(m.tc)}</td><td>${m.ngayLam}</td><td>${m.xc}</td><td><b>${fmtH(m.cong)}</b></td><td>${m.com}</td><td class="num">${fmtN(m.tienGio)}</td><td class="num">${fmtN(m.tienTC)}</td><td class="num">${fmtN(m.tienCom)}</td>${bt?`<td>${btInput(e)}</td><td class="num">${fmtN(m.tienBaoTay)}</td>`:''}<td>${ccInput(e,p)}</td>${payInputs(e,p,tong,thuc)}</tr>`; });
   h+=`<tr><td class="tot"></td><td class="l stk tot">Tổng (${list.length}${list.length!==all.length?'/'+all.length:''} NV)</td><td class="tot"></td><td class="tot">${fmtH(T.gioLam)}</td><td class="tot">${fmtH(T.tc)}</td><td class="tot">${T.ngayLam}</td><td class="tot">${T.xc}</td><td class="tot">${fmtH(T.cong)}</td><td class="tot">${T.com}</td><td class="num tot">${fmtN(T.tienGio)}</td><td class="num tot">${fmtN(T.tienTC)}</td><td class="num tot">${fmtN(T.tienCom)}</td>${bt?`<td class="tot"></td><td class="num tot">${fmtN(T.baoTay)}</td>`:''}<td class="num tot">${fmtN(T.cc)}</td><td class="num tot">${fmtN(T.bu)}</td><td class="num tot">${fmtN(T.tong)}</td><td class="num tot">${fmtN(T.bh)}</td><td class="num tot">${fmtN(T.thuc)}</td><td class="tot"></td></tr></table>`;
   $('#pTbl').innerHTML=h; $('#pNote').innerHTML=`<div class="note info">Công thức: giờ làm (≤${R.gioChuan}h/ngày) × ${fmtN(R.donGiaGio)} × hệ + tăng ca × ${fmtN(R.donGiaTC)} × hệ + cơm × ${fmtN(R.donGiaCom)}${bt?' + bao tay '+fmtN(R.baoTay)+' × ngày đi làm (có giờ ≥1h; không XC/P; người tick "Không bao tay" = 0)':''} + chuyên cần (kế toán nhập tay) + bù. Công = ngày có mặt + XC, dùng xét ABC/chuyên cần. Thực lĩnh = tổng làm tròn nghìn − bảo hiểm.</div>`;
 }
@@ -1514,11 +1532,11 @@ function renderPayRowsOnly(){ const bar=$('#pTbl .card'); const scroll=bar?bar.q
 function renderPayDiem(){
   const {dept,ym,rows,pmap}=PAY; const R=rulesOf(dept); const all=empRows(rows,dept); const list=payFilter(all); const bt=!!(Number(R.baoTay)||0);
   const T={diem:0,xc:0,cong:0,tc:0,com:0,tienGio:0,tienTC:0,tienCom:0,baoTay:0,sl:0,cc:0,bu:0,tong:0,bh:0,thuc:0};
-  let h=slBar(ym)+payFilterBar(all,list)+`<table><tr><th>STT</th><th class="l stk">Họ tên</th><th>Lương tháng</th>${R._khungTT?'<th>Hệ</th>':''}<th>Điểm</th><th>XC</th><th>Công<br><small>xét ABC</small></th><th>TC (giờ)</th><th>Cơm</th><th>Tiền công<br><small>lương/30 × công</small></th><th>Tiền TC<br><small>${fmtN(R.donGiaTC)}đ</small></th><th>Tiền cơm</th>${bt?`<th>Bao<br>tay</th><th>Tiền bao tay<br><small>${fmtN(R.baoTay)} × ngày</small></th>`:''}<th>Tiền sản lượng<br><small>theo ngày</small></th><th>Chuyên cần<br><small>nhập tay</small></th><th>Bù / khác</th><th>Tổng</th><th>Bảo hiểm</th><th>Thực lĩnh</th><th>Ghi chú</th></tr>`;
+  let h=slBar(ym)+payFilterBar(all,list)+`<table><tr><th>STT</th><th class="l stk">Họ tên</th><th>Lương tháng</th>${R._khungTT?'<th>Hệ</th>':''}<th>Ngày công<br><small>điểm ÷ 10</small></th><th>XC</th><th>Công<br><small>xét ABC</small></th><th>TC (giờ)</th><th>Cơm</th><th>Tiền công<br><small>lương/30 × công</small></th><th>Tiền TC<br><small>${fmtN(R.donGiaTC)}đ</small></th><th>Tiền cơm</th>${bt?`<th>Bao<br>tay</th><th>Tiền bao tay<br><small>${fmtN(R.baoTay)} × ngày</small></th>`:''}<th>Tiền sản lượng<br><small>theo ngày</small></th><th>Chuyên cần<br><small>nhập tay</small></th><th>Bù / khác</th><th>Tổng</th><th>Bảo hiểm</th><th>Thực lĩnh</th><th>Ghi chú</th></tr>`;
   list.forEach((r,ri)=>{ const e=r.emp,m=r.month; const p=payRow(e,pmap); const cc=Number(p.chuyenCan||0); const SL=slOfRow(r,ym,R); const tong=m.tongTien+Number(p.bu||0)+cc+SL.tien; const thuc=Math.round(tong/1000)*1000-Number(p.baoHiem||0);
     T.diem+=m.diem;T.xc+=m.xc;T.cong+=m.cong;T.tc+=m.tc;T.com+=m.com;T.tienGio+=m.tienGio;T.tienTC+=m.tienTC;T.tienCom+=m.tienCom;T.baoTay+=m.tienBaoTay||0;T.sl+=SL.tien;T.cc+=cc;T.bu+=Number(p.bu||0);T.tong+=tong;T.bh+=Number(p.baoHiem||0);T.thuc+=thuc;
-    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)}</td><td>${luongInput(e)}</td>${R._khungTT?`<td>${heInput(e)}</td>`:''}<td>${fmtH(m.diem)}</td><td>${m.xc}</td><td><b>${fmtH(m.cong)}</b></td><td>${fmtH(m.tc)}</td><td>${m.com}</td><td class="num">${fmtN(m.tienGio)}</td><td class="num">${fmtN(m.tienTC)}</td><td class="num">${fmtN(m.tienCom)}</td>${bt?`<td>${btInput(e)}</td><td class="num">${fmtN(m.tienBaoTay||0)}</td>`:''}<td class="num" title="Ngày có sản lượng: ${SL.days.join(', ')||'—'}">${fmtN(SL.tien)}</td><td>${ccInput(e,p)}</td>${payInputs(e,p,tong,thuc)}</tr>`; });
-  h+=`<tr><td class="tot"></td><td class="l stk tot">Tổng (${list.length}${list.length!==all.length?'/'+all.length:''} NV)</td><td class="tot"></td>${R._khungTT?'<td class="tot"></td>':''}<td class="tot">${fmtH(T.diem)}</td><td class="tot">${T.xc}</td><td class="tot">${fmtH(T.cong)}</td><td class="tot">${fmtH(T.tc)}</td><td class="tot">${T.com}</td><td class="num tot">${fmtN(T.tienGio)}</td><td class="num tot">${fmtN(T.tienTC)}</td><td class="num tot">${fmtN(T.tienCom)}</td>${bt?`<td class="tot"></td><td class="num tot">${fmtN(T.baoTay)}</td>`:''}<td class="num tot">${fmtN(T.sl)}</td><td class="num tot">${fmtN(T.cc)}</td><td class="num tot">${fmtN(T.bu)}</td><td class="num tot">${fmtN(T.tong)}</td><td class="num tot">${fmtN(T.bh)}</td><td class="num tot">${fmtN(T.thuc)}</td><td class="tot"></td></tr></table>`;
+    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)} ${deptTag(e,dept,ym+'-01',ym+'-'+pad(monthDays(ym)))}</td><td>${luongInput(e)}</td>${R._khungTT?`<td>${heInput(e)}</td>`:''}<td>${String(Math.round(m.diem*10)/100).replace('.',',')}</td><td>${m.xc}</td><td><b>${fmtH(m.cong)}</b></td><td>${fmtH(m.tc)}</td><td>${m.com}</td><td class="num">${fmtN(m.tienGio)}</td><td class="num">${fmtN(m.tienTC)}</td><td class="num">${fmtN(m.tienCom)}</td>${bt?`<td>${btInput(e)}</td><td class="num">${fmtN(m.tienBaoTay||0)}</td>`:''}<td class="num" title="Ngày có sản lượng: ${SL.days.join(', ')||'—'}">${fmtN(SL.tien)}</td><td>${ccInput(e,p)}</td>${payInputs(e,p,tong,thuc)}</tr>`; });
+  h+=`<tr><td class="tot"></td><td class="l stk tot">Tổng (${list.length}${list.length!==all.length?'/'+all.length:''} NV)</td><td class="tot"></td>${R._khungTT?'<td class="tot"></td>':''}<td class="tot">${String(Math.round(T.diem*10)/100).replace('.',',')}</td><td class="tot">${T.xc}</td><td class="tot">${fmtH(T.cong)}</td><td class="tot">${fmtH(T.tc)}</td><td class="tot">${T.com}</td><td class="num tot">${fmtN(T.tienGio)}</td><td class="num tot">${fmtN(T.tienTC)}</td><td class="num tot">${fmtN(T.tienCom)}</td>${bt?`<td class="tot"></td><td class="num tot">${fmtN(T.baoTay)}</td>`:''}<td class="num tot">${fmtN(T.sl)}</td><td class="num tot">${fmtN(T.cc)}</td><td class="num tot">${fmtN(T.bu)}</td><td class="num tot">${fmtN(T.tong)}</td><td class="num tot">${fmtN(T.bh)}</td><td class="num tot">${fmtN(T.thuc)}</td><td class="tot"></td></tr></table>`;
   $('#pTbl').innerHTML=h; $('#pNote').innerHTML=`<div class="note info">Công thức: ${R._ca10?`${Number(R.caGioTT)||10}h đầu tính từ giờ vào TT = đủ ${R.diemDu||10} điểm (thiếu giờ trừ điểm) · TC = giờ sau mốc ${Number(R.caGioTT)||10}h (không bù) × ${fmtN(R.donGiaTC)}`:R._khungTT?`khung giờ tổ trưởng = đủ ${R.diemDu||10} điểm, vào trễ/về sớm trừ 1 điểm mỗi giờ thiếu · không tăng ca · cơm theo mốc giờ · tiền công × hệ số`:R._khongBu?`điểm = giờ máy trong khung Vào–Ra TT (khớp = đủ ${R.diemDu||10}, thiếu giờ trừ điểm) · TC = toàn bộ giờ sau ${R.caHet||'16:00'} (không bù) × ${fmtN(R.donGiaTC)}`:`điểm/ngày = giờ máy trong khung Vào–Ra tổ trưởng (ra ≥ giờ Ra TT −0,5h = đủ ${R.diemDu||10}) · TC = giờ sau ${R.caHet||'16:00'} nhưng phải làm đủ ca chuẩn ${R.caVao||'05:00'}–${R.caHet||'16:00'} × ${fmtN(R.donGiaTC)}`} · công = điểm ÷ ${R._khungTT?10:(R.diemDu||10)} · tiền công = lương tháng ÷ 30 × công + cơm × ${fmtN(R.donGiaCom)}${bt?' + bao tay '+fmtN(R.baoTay)+' × ngày đi làm':''} + sản lượng (Σ mức ngày × công ngày; ngày đủ = 100%, ngày lẻ theo điểm, XC/P = 0) + chuyên cần (nhập tay) + bù. Công = điểm ÷ 10 (đã gồm XC), dùng xét ABC/chuyên cần.</div>`;
 }
 function payEdit(no,k,v){ PAYEDIT[no]=Object.assign(PAYEDIT[no]||{},{[k]:k==='ghiChu'?v:parseMoney(v)}); $('#pSave').disabled=false; renderPay(); }
@@ -1528,12 +1546,12 @@ async function savePayEdits(){ const {ym,pmap}=PAY; const b=db.batch(); let n=0;
 function exportPay(){
   if(!PAY) return; const {dept,ym,rows,pmap}=PAY; const R=rulesOf(dept); const bt=!!(Number(R.baoTay)||0); const title=[['CTY TNHH MTV THỦY SẢN CHÂU BÁ THẢO'],[`BẢNG LƯƠNG BỘ PHẬN ${DEPTS[dept].ten.toUpperCase()} — THÁNG ${ym.slice(5,7)}/${ym.slice(0,4)}`],[]];
   let hdr,data;
-  if(isDiem(dept)){ hdr=['STT','Mã NV','Họ và tên','Lương tháng','Điểm','XC','Công (xét ABC)','Tăng ca (giờ)','Phần cơm','Tiền công','Tiền TC','Tiền cơm','Bao tay','Sản lượng','Chuyên cần','Bù / khác','Tổng tiền','Trừ bảo hiểm','Thực lĩnh','Ký nhận','Ghi chú'];
-    data=empRows(rows,dept).map((r,i)=>{ const e=r.emp,m=r.month; const p=payRow(e,pmap); const cc=Number(p.chuyenCan||0); const SL=slOfRow(r,ym,R); const tong=m.tongTien+Number(p.bu||0)+cc+SL.tien; const thuc=Math.round(tong/1000)*1000-Number(p.baoHiem||0); return [i+1,e.employeeNo,e.name,m.luongThang||0,m.diem,m.xc,m.cong,m.tc,m.com,m.tienGio,m.tienTC,m.tienCom,m.tienBaoTay||0,SL.tien,cc,Number(p.bu||0),tong,Number(p.baoHiem||0),thuc,'',p.ghiChu||'']; }); }
+  if(isDiem(dept)){ hdr=['STT','Mã NV','Họ và tên','Lương tháng','Ngày công','XC','Công (xét ABC)','Tăng ca (giờ)','Phần cơm','Tiền công','Tiền TC','Tiền cơm','Bao tay','Sản lượng','Chuyên cần','Bù / khác','Tổng tiền','Trừ bảo hiểm','Thực lĩnh','Ký nhận','Ghi chú'];
+    data=empRows(rows,dept).map((r,i)=>{ const e=r.emp,m=r.month; const p=payRow(e,pmap); const cc=Number(p.chuyenCan||0); const SL=slOfRow(r,ym,R); const tong=m.tongTien+Number(p.bu||0)+cc+SL.tien; const thuc=Math.round(tong/1000)*1000-Number(p.baoHiem||0); return [i+1,e.employeeNo,nameCv(e),m.luongThang||0,Math.round(m.diem*10)/100,m.xc,m.cong,m.tc,m.com,m.tienGio,m.tienTC,m.tienCom,m.tienBaoTay||0,SL.tien,cc,Number(p.bu||0),tong,Number(p.baoHiem||0),thuc,'',p.ghiChu||'']; }); }
   else { hdr=['STT','Mã NV','Họ và tên','Hệ','Giờ làm','Tăng ca (giờ)','Ngày đi làm','XC','Công (xét ABC)','Phần cơm',`Tiền lương (${R.donGiaGio/1000}K/giờ)`,`Tăng ca (${R.donGiaTC/1000}K/giờ)`,`Tiền cơm (${R.donGiaCom/1000}K/phần)`,`Bao tay (${(R.baoTay||0)/1000}K/ngày)`,'Chuyên cần','Bù / khác','Tổng tiền','Trừ tiền bảo hiểm','Thực lĩnh','Ký nhận','Ghi chú'];
-    data=empRows(rows,dept).map((r,i)=>{ const e=r.emp,m=r.month; const p=payRow(e,pmap); const cc=Number(p.chuyenCan||0); const tong=m.tongTien+Number(p.bu||0)+cc; const thuc=Math.round(tong/1000)*1000-Number(p.baoHiem||0); return [i+1,e.employeeNo,e.name,Number(e.he)||1,m.gioLam,m.tc,m.ngayLam,m.xc,m.cong,m.com,m.tienGio,m.tienTC,m.tienCom,m.tienBaoTay,cc,Number(p.bu||0),tong,Number(p.baoHiem||0),thuc,'',p.ghiChu||'']; }); }
+    data=empRows(rows,dept).map((r,i)=>{ const e=r.emp,m=r.month; const p=payRow(e,pmap); const cc=Number(p.chuyenCan||0); const tong=m.tongTien+Number(p.bu||0)+cc; const thuc=Math.round(tong/1000)*1000-Number(p.baoHiem||0); return [i+1,e.employeeNo,nameCv(e),Number(e.he)||1,m.gioLam,m.tc,m.ngayLam,m.xc,m.cong,m.com,m.tienGio,m.tienTC,m.tienCom,m.tienBaoTay,cc,Number(p.bu||0),tong,Number(p.baoHiem||0),thuc,'',p.ghiChu||'']; }); }
   const ws=XLSX.utils.aoa_to_sheet([...title,hdr,...data]); const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Lương');
-  if(isDiem(dept)){ const n=monthDays(ym); const muc=slMuc(); const hd=['Họ tên',...Array.from({length:n},(_,i)=>String(i+1)),'Tiền SL']; const mr=['Mức (nghìn)',...Array.from({length:n},(_,i)=>muc[pad(i+1)]||''),'']; const rows2=empRows(rows,dept).map(r=>{ const SL=slOfRow(r,ym,R); return [r.emp.name,...Array.from({length:n},(_,i)=>{ const d=r.days[ym+'-'+pad(i+1)]; if(!d||d.xc||d.isP) return d&&d.xc?'XC':''; const c=Math.min(1,Number(d.cong)||0); return c>=1?'X':(c>0?c:''); }),SL.tien]; }); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([[`SẢN LƯỢNG THEO NGÀY — ${DEPTS[dept].ten.toUpperCase()} — ${ym.slice(5,7)}/${ym.slice(0,4)}`],[],hd,mr,...rows2]),'Sản lượng'); }
+  if(isDiem(dept)){ const n=monthDays(ym); const muc=slMuc(); const hd=['Họ tên',...Array.from({length:n},(_,i)=>String(i+1)),'Tiền SL']; const mr=['Mức (nghìn)',...Array.from({length:n},(_,i)=>muc[pad(i+1)]||''),'']; const rows2=empRows(rows,dept).map(r=>{ const SL=slOfRow(r,ym,R); return [nameCv(r.emp),...Array.from({length:n},(_,i)=>{ const d=r.days[ym+'-'+pad(i+1)]; if(!d||d.xc||d.isP) return d&&d.xc?'XC':''; const c=Math.min(1,Number(d.cong)||0); return c>=1?'X':(c>0?c:''); }),SL.tien]; }); XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([[`SẢN LƯỢNG THEO NGÀY — ${DEPTS[dept].ten.toUpperCase()} — ${ym.slice(5,7)}/${ym.slice(0,4)}`],[],hd,mr,...rows2]),'Sản lượng'); }
   XLSX.writeFile(wb,`Luong-${slug(DEPTS[dept].ten)}-${ym}.xlsx`);
 }
 /* ===================== NHÂN VIÊN ===================== */
@@ -1574,7 +1592,7 @@ function renderEmp(){
   const dopt=id=>'<option value="">— chưa gán —</option>'+Object.keys(DEPTS).map(d=>`<option value="${d}" ${id===d?'selected':''}>${esc(DEPTS[d].ten)}</option>`).join('');
   $('#eTbl').innerHTML=`<table><tr><th><input type="checkbox" onchange="$$('#eTbl .esel').forEach(c=>{c.checked=this.checked;c.onchange()})"></th><th>STT</th><th>Mã máy</th><th class="l">Họ tên</th><th>Tổ / bộ phận</th><th>Công ty</th><th>Hệ</th><th>Chức vụ</th><th>Lương tháng</th><th>BH/tháng</th><th>Không<br>bao tay</th><th>Email</th><th>Điện thoại</th><th>Quét gần nhất</th><th>Đang làm</th></tr>`+
    list.map((e,i)=>`<tr><td><input type="checkbox" class="esel" data-no="${esc(e.employeeNo)}" ${eSel.has(e.employeeNo)?'checked':''} onchange="this.checked?eSel.add(this.dataset.no):eSel.delete(this.dataset.no)"></td><td>${i+1}</td><td>${esc(e.employeeNo)}</td><td class="l">${esc(e.name)}</td>
-    <td><select class="chip" onchange="empSet('${esc(e.employeeNo)}','boPhan',this.value)">${dopt(e.boPhan)}</select></td>
+    <td><select class="chip" onchange="openTransfer(['${esc(e.employeeNo)}'],this.value);this.value='${esc(e.boPhan||'')}'">${dopt(e.boPhan)}</select>${Array.isArray(e.deptHist)&&e.deptHist.some(x=>x.from>vnDate(Date.now()))?`<div class="small" style="color:var(--pink)">→ ${esc((DEPTS[e.deptHist[e.deptHist.length-1].dept]||{}).ten||'')} từ ${e.deptHist[e.deptHist.length-1].from.slice(8,10)}/${e.deptHist[e.deptHist.length-1].from.slice(5,7)}</div>`:''}</td>
     <td><input class="chip" style="width:110px" value="${esc(e.congTy||'')}" onchange="empSet('${esc(e.employeeNo)}','congTy',this.value)"></td>
     <td><input class="chip" style="width:64px;text-align:right" value="${e.he||1}" onchange="empSet('${esc(e.employeeNo)}','he',Number(this.value)||1)"></td>
     <td><input class="chip" style="width:100px" value="${esc(e.chucVu||'')}" onchange="empSet('${esc(e.employeeNo)}','chucVu',this.value)"></td>
@@ -1597,9 +1615,18 @@ async function addEmp(){
 async function addEmpDo(){ const no=$('#nNo').value.trim(), name=$('#nName').value.trim(); if(!no||!name){ toast('Thiếu mã máy hoặc họ tên.'); return; } if(EMPS[no]){ toast('Mã '+no+' đã có: '+EMPS[no].name); return; }
   const u={employeeNo:no,name,boPhan:$('#nDept').value,congTy:$('#nCty').value.trim(),he:Number($('#nHe').value)||1,chucVu:$('#nCv').value.trim(),email:$('#nEmail').value.trim(),phone:$('#nPhone').value.trim(),active:true,source:'manual',createdAt:TS.now(),createdBy:ME.username};
   try{ await db.collection('employees').doc(no).set(u); }catch(e){ toast(errMsg(e),8000); return; } EMPS[no]=u; saveBaseCache(true); closeModal(); toast('Đã thêm '+name); fillDeptSelects(); renderEmp(); }
-async function bulkAssign(){ if(!eSel.size){ toast('Chưa tick chọn nhân viên nào.'); return; }
-  openModal(`<h3>Chuyển bộ phận cho ${eSel.size} nhân viên</h3><div class="fld"><label>Tổ / bộ phận</label><select id="bDept">${Object.keys(DEPTS).map(d=>`<option value="${d}">${esc(DEPTS[d].ten)}</option>`).join('')}</select></div><div class="fld"><label>Công ty (để trống = giữ nguyên)</label><input id="bCty"></div><div class="btnrow"><button class="btn" onclick="closeModal()">Hủy</button><button class="btn p" onclick="bulkAssignDo()">Gán</button></div>`); }
-async function bulkAssignDo(){ const d=$('#bDept').value, c=$('#bCty').value.trim(); const b=db.batch(); for(const no of eSel){ const u={boPhan:d,updatedAt:TS.now(),updatedBy:ME.username}; if(c) u.congTy=c; b.set(db.collection('employees').doc(no),u,{merge:true}); Object.assign(EMPS[no],u); } await b.commit(); saveBaseCache(true); toast('Đã gán '+eSel.size+' người'); eSel.clear(); closeModal(); fillDeptSelects(); renderEmp(); }
+async function bulkAssign(){ if(!eSel.size){ toast('Chưa tick chọn nhân viên nào.'); return; } openTransfer([...eSel]); }
+/* V1.7.0: chuyển bộ phận có ngày hiệu lực; tick "Giữ ở tổ cũ đến hết tháng" = hiệu lực 01 tháng sau */
+function openTransfer(nos,target){ const today=vnDate(Date.now()); const ym=today.slice(0,7); const nextM=addDays(ym+'-'+pad(monthDays(ym)),1); const e0=EMPS[nos[0]]; const cur=e0?deptAt(e0,today):'';
+  const names=nos.map(n=>EMPS[n]?EMPS[n].name:n); const histHtml=e0&&Array.isArray(e0.deptHist)&&e0.deptHist.length?`<div class="small" style="background:var(--paper,#F4F6F9);border-radius:6px;padding:6px 8px;margin-top:6px"><b>Lịch sử (${esc(e0.name)})</b><br>${e0.deptHist.map((x,i,a)=>`${x.from==='2000-01-01'?'trước':fmtDateVN(x.from)} → ${i+1<a.length?fmtDateVN(addDays(a[i+1].from,-1)):'nay'} · ${esc(DEPTS[x.dept]?DEPTS[x.dept].ten:(x.dept||'— chưa gán —'))} <button class="btn sm" style="padding:0 6px" onclick="delHist('${esc(nos[0])}',${i})" title="xoá mục này">×</button>`).join('<br>')}</div>`:'';
+  openModal(`<h3>Chuyển bộ phận — ${nos.length===1?esc(names[0]):nos.length+' người'}</h3><div class="sub">${nos.length>1?esc(names.slice(0,4).join(', '))+(names.length>4?'…':''):''} · đang ở <b>${esc(cur&&DEPTS[cur]?DEPTS[cur].ten:'— chưa gán —')}</b></div>
+   <div class="fld"><label>Chuyển sang</label><select id="bDept">${Object.keys(DEPTS).map(d=>`<option value="${d}" ${d===target?'selected':''}>${esc(DEPTS[d].ten)} (${KIEU[DEPTS[d].kieu]||''})</option>`).join('')}</select></div>
+   <label class="chk" style="display:flex;gap:8px;align-items:flex-start;background:var(--blue-soft);border-radius:8px;padding:8px 10px;margin:8px 0"><input type="checkbox" id="bKeep" checked onchange="$('#bFrom').disabled=this.checked;$('#bFrom').value=this.checked?'${nextM}':'${today}'" style="width:auto;margin-top:3px"><span><b>Giữ ở tổ cũ đến hết tháng này</b><br><span class="small">Tháng này vẫn tính trọn ở tổ cũ (tổ trưởng cũ chấm, kiểu lương cũ). Từ <b>${fmtDateVN(nextM)}</b> sang tổ mới.</span></span></label>
+   <div class="fld"><label>Ngày hiệu lực (ngày đầu tiên làm ở tổ mới)</label><input type="date" id="bFrom" value="${nextM}" disabled></div>
+   <div class="fld"><label>Công ty (để trống = giữ nguyên)</label><input id="bCty"></div>${histHtml}
+   <div class="btnrow"><button class="btn" onclick="closeModal()">Hủy</button><button class="btn p" onclick="bulkAssignDo(${JSON.stringify(nos).replace(/"/g,'&quot;')})">Chuyển${nos.length>1?' '+nos.length+' người':''}</button></div>`); }
+async function delHist(no,i){ const e=EMPS[no]; if(!e||!Array.isArray(e.deptHist)) return; if(!confirm('Xoá mục lịch sử này?')) return; const h=e.deptHist.filter((_,k)=>k!==i); const today=vnDate(Date.now()); const bp=h.length?deptAt({deptHist:h,boPhan:e.boPhan},today):e.boPhan; try{ await db.collection('employees').doc(no).set({deptHist:h,boPhan:bp,updatedAt:TS.now(),updatedBy:ME.username},{merge:true}); e.deptHist=h; e.boPhan=bp; saveBaseCache(true); closeModal(); renderEmp(); toast('Đã xoá'); }catch(err){ toast(errMsg(err),8000); } }
+async function bulkAssignDo(nos){ nos=nos||[...eSel]; const d=$('#bDept').value, c=$('#bCty').value.trim(); const from=$('#bFrom').value; if(!from){ toast('Chưa có ngày hiệu lực.'); return; } const today=vnDate(Date.now()); const b=db.batch(); let n=0; for(const no of nos){ const e=EMPS[no]; if(!e) continue; const h=histWith(e,d,from); const u={deptHist:h,boPhan:deptAt({deptHist:h,boPhan:e.boPhan},today),updatedAt:TS.now(),updatedBy:ME.username}; if(c) u.congTy=c; b.set(db.collection('employees').doc(no),u,{merge:true}); Object.assign(EMPS[no],u); n++; } try{ await b.commit(); }catch(err){ toast(errMsg(err),8000); return; } saveBaseCache(true); toast(`Đã chuyển ${n} người sang ${DEPTS[d]?DEPTS[d].ten:d} từ ${fmtDateVN(from)}`); eSel.clear(); closeModal(); fillDeptSelects(); renderEmp(); }
 function titleCase(x){ x=String(x).trim(); if(x!==x.toUpperCase()||!/[A-ZÀ-Ỹ]/.test(x)) return x; return x.toLowerCase().replace(/(^|[\s\-\/(])(\p{L})/gu,(m,a,b)=>a+b.toUpperCase()); }
 async function importEmp(inp){
   const f=inp.files[0]; if(!f) return; const buf=await f.arrayBuffer(); const wb=XLSX.read(buf); const ws=wb.Sheets[wb.SheetNames[0]]; const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''}); inp.value='';
@@ -1663,7 +1690,7 @@ async function importEmpDo(){
   for(const x of items){ const u=Object.assign({updatedAt:TS.now(),updatedBy:ME.username},x.info);
     if(x.isNew){ u.active=!x.nghi; u.boPhan=x.nghi?'':(x.deptId||''); if(x.nghi) u.ghiChuHik=x.deptName; u.source='hik'; }
     else if(x.firstAssign){ u.boPhan=x.deptId; u.active=true; }
-    else if(byHik){ if(x.nghi){ u.active=false; u.boPhan=''; u.ghiChuHik=x.deptName; } else if(x.deptId){ u.boPhan=x.deptId; u.active=true; } }
+    else if(byHik){ if(x.nghi){ u.active=false; u.boPhan=''; u.ghiChuHik=x.deptName; } else if(x.deptId){ u.boPhan=x.deptId; u.active=true; const cur=EMPS[x.no]; if(cur&&cur.boPhan&&cur.boPhan!==x.deptId) u.deptHist=histWith(cur,x.deptId,vnDate(Date.now())); /* V1.7.0 */ } }
     b.set(db.collection('employees').doc(x.no),u,{merge:true}); pending.push(['e',x.no,u]); n++; cnt++; if(cnt>=400) await flush(); }
   await flush(); saveBaseCache(true); fillDeptSelects(); renderEmp();
   toast(`Đã nhập ${n} người (${items.filter(x=>x.isNew).length} mới${byHik?', đã cập nhật bộ phận theo Hik':', giữ nguyên tổ hiện tại'}).`,7000);
@@ -1675,7 +1702,7 @@ const RULE_FIELDS=[['Đơn giá',[['donGiaGio','Giờ làm (đ/giờ)'],['donGia
  ['Ghép ca theo máy (cả 2 kiểu)',[['gapCaMoi','Nghỉ bao lâu thì coi là ca mới (giờ)'],['maxCa','Một ca tối đa (giờ)'],['minCa','Ca ngắn hơn X giờ coi như chưa kết thúc'],['trungPhut','Quét cách nhau ≤ phút = quét trùng']]],
  ['Tổ trưởng',[['gioiHan','Giới hạn tổ trưởng đổi giờ / người / tháng (0 = không giới hạn)'],['soNhom','Số nhóm giờ trong tổ (1–3)']]],
  ['Lương tháng — điểm',[['diemDu','Điểm khi làm đủ ca (10 = 1 công; tổ ca 24h đặt 20 → hiện XX = 2 công)']]],
- ['Cơm',[['comCoMat','1 phần khi có mặt ≥ (giờ)'],['comTC','+1 phần khi tăng ca ≥ (giờ)'],['comK3','+1 phần (ca 3) khi tăng ca ≥ (giờ)']]],
+ ['Cơm',[['comCoMat','1 phần khi có mặt ≥ (giờ)'],['comTC','+1 phần khi tăng ca ≥ (giờ)'],['comK3','+1 phần (ca 3) khi tăng ca ≥ (giờ)'],['comGio2','+1 phần khi TỔNG giờ làm trong ngày ≥ (giờ) — 0 = không dùng; vd 10 → làm trên 10 tiếng = 2 phần']]],
  ['Xếp loại & chuyên cần',[['abcA','Loại A từ (ngày công)'],['abcB','Loại B từ'],['abcC','Loại C từ'],['chuyenCan31','Chuyên cần 31 công (đ)'],['chuyenCan30','Chuyên cần 30 công (đ)']]]];
 function renderCfg(){
   const id=$('#cDept').value; syncFrom(id,''); const d=DEPTS[id]; const R=rulesOf(id);
@@ -1688,6 +1715,7 @@ function renderCfg(){
    <div class="kv"><span>Ca chuẩn (vào – hết ca) — lương tháng: đủ ca = điểm đủ, ra sau hết ca là tăng ca; cũng là giờ điền sẵn khi bật Giờ cố định</span><span><input type="time" data-r2="caVao" value="${R.caVao||'05:00'}" style="width:110px"> <input type="time" data-r2="caHet" value="${R.caHet||'16:00'}" style="width:110px"></span></div>
    <div class="kv cfg-diem"><span>Cách tính điểm (lương tháng)</span><select id="cCachDiem" onchange="cfgToggle()">${[['cachuan','Ca chuẩn + tăng ca bù giờ (vào trễ phải bù đủ ca chuẩn mới có TC)'],['khongbu','Ca chuẩn + tăng ca không bù (vào trễ trừ điểm, TC = giờ sau hết ca)'],['khungTT','Khung giờ tổ trưởng = đủ điểm, không tăng ca, cơm theo mốc giờ'],['ca10','Ca N giờ tính từ giờ vào tổ trưởng = đủ điểm, phần dư là tăng ca (không bù)']].map(([k,lb])=>`<option value="${k}" ${cachDiemOf(id)===k?'selected':''}>${lb}</option>`).join('')}</select></div>
    <div class="kv cfg-ca10"><span>Số giờ ca chuẩn tính từ giờ vào tổ trưởng (đủ = điểm đủ; vượt = TC)</span><input data-r="caGioTT" value="${R.caGioTT||10}" style="width:110px"></div>
+   <div class="kv"><span>Ô "+1 phần khi TỔNG giờ ≥" áp dụng từ tháng (để trống = mọi tháng chưa khoá)</span><input type="month" data-r2="comGio2Tu" value="${R.comGio2Tu||''}" style="width:150px"></div>
    <div class="kv cfg-khung"><span>Mốc cơm (qua giờ nào +1 phần; để trống mốc không dùng)</span><span><input type="time" data-r2="comMoc1" value="${R.comMoc1||''}" style="width:110px"> <input type="time" data-r2="comMoc2" value="${R.comMoc2||''}" style="width:110px"> <input type="time" data-r2="comMoc3" value="${R.comMoc3||''}" style="width:110px"></span></div>
    <div class="kv cfg-khung"><span>Ca 24h — ngày sau ca tự ghi "Nghỉ ca" (không vắng, không cần P); đặt "Một ca tối đa" ≥ 26 giờ</span><input type="checkbox" id="cCa24" ${d&&d.ca24?'checked':''} style="width:auto"></div>
    <div class="kv cfg-nhom"><span>Nhóm 2 điền sẵn (vào – ra)</span><span><input type="time" data-r2="nhomVao2" value="${R.nhomVao2||''}" style="width:110px"> <input type="time" data-r2="nhomRa2" value="${R.nhomRa2||''}" style="width:110px"></span></div>
@@ -1708,7 +1736,7 @@ function mergeDept(){ const src=$('#cDept').value; if(!src||!DEPTS[src]) return;
 async function mergeDeptDo(src){ const target=$('#mgTarget').value; if(!target||target===src||!DEPTS[target]) return; if(!confirm(`Gộp "${DEPTS[src].ten}" → "${DEPTS[target].ten}"? Không hoàn tác được.`)) return; closeModal();
   try{
     const es=await db.collection('employees').where('boPhan','==',src).get(); let b=db.batch(), c=0; const flush=async()=>{ if(c){ await b.commit(); b=db.batch(); c=0; } };
-    es.forEach(x=>{ b.set(x.ref,{boPhan:target,updatedAt:TS.now(),updatedBy:ME.username},{merge:true}); if(EMPS[x.id]) EMPS[x.id].boPhan=target; c++; }); await flush();
+    es.forEach(x=>{ const cur=EMPS[x.id]||x.data(); const h=histWith(cur,target,vnDate(Date.now())); b.set(x.ref,{boPhan:target,deptHist:h,updatedAt:TS.now(),updatedBy:ME.username},{merge:true}); if(EMPS[x.id]){ EMPS[x.id].boPhan=target; EMPS[x.id].deptHist=h; } c++; }); await flush();
     const ls=await db.collection('lines').where('deptId','==',src).get(); const ids=[]; ls.forEach(x=>ids.push(x)); let copied=0;
     for(const x of ids){ const d=x.data(); const tid=target+'_'+d.date; const t=await db.collection('lines').doc(tid).get(); if(!t.exists||!(t.data().inTime||t.data().xc)){ const nd=Object.assign({},t.exists?t.data():{},d,{deptId:target,mergedFrom:src}); b.set(db.collection('lines').doc(tid),nd,{merge:true}); LINES[tid]=nd; copied++; c++; if(c>=300) await flush(); } }
     await flush();
