@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.8.8
+ Phiên bản : V1.9.2
  Ngày      : 27/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,21 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.9.2 – Ô "Cách tính điểm" gọn: nhóm "Dùng từ tháng 10" (Theo giờ làm — TC bù giờ · Khung giờ
+            tổ trưởng · Có mặt = đủ công) + nhóm "Kiểu cũ — chỉ để giữ số tháng 9" (ca chuẩn bù / không bù,
+            tính từ giờ vào TT không bù); bỏ chữ N. Chỉ đổi tên hiển thị, mã cách tính và số liệu giữ nguyên.
+   V1.9.1 – Cách tính điểm mới "Theo giờ làm" (cachDiem=giolam): giờ làm trong khung giờ tổ trưởng của
+            nhóm (lệch ≤0,5h = đúng giờ TT), làm tròn 0,5 gần nhất; điểm = giờ ÷ N × điểm đủ (làm tròn
+            0,5, tối đa điểm đủ); TC = giờ vượt N (bù giờ). N = ô "Số giờ đủ công" (Chế biến 12, IQF/
+            Bao gói/Xếp hộp 10). Ẩn ô "áp dụng từ tháng" (vẫn giữ giá trị đã lưu). Tổ không chọn → không đổi.
+   V1.9.0 – (1) CẤU HÌNH TỔ THEO THÁNG: Cấu hình có ô Tháng; tháng chưa chỉnh tự dùng cấu hình tháng
+            trước; Lưu chỉ áp cho tháng đang chọn trở đi (tháng trước giữ nguyên). Lưu ở departments.thang
+            {'YYYY-MM':{...}}; cấu hình cũ = gốc cho các tháng chưa có bộ riêng (dữ liệu cũ không đổi).
+            Mọi màn hình tự nạp cấu hình đúng tháng; khoảng ngày trải 2 tháng tính từng tháng; ca đêm theo
+            ngày vào ca. Tên tổ/công ty/thứ tự/tên Hik dùng chung mọi tháng.
+            (2) TỰ KHOÁ 24H: bỏ nút Chốt ngày; tổ trưởng sửa được 24h tính từ lần Chốt giờ đầu tiên (lưu
+            chotAt); tổ không chốt giờ → 24h từ giờ ra của người về muộn nhất; cờ "chốt ngày" cũ không còn
+            khoá tổ trưởng (vẫn giữ giờ đã ghi); kế toán/quản trị sửa được tới khi khoá tháng.
    V1.8.8 – Tab Nhân viên: ẩn 4 cột Hệ, Lương tháng, Email, Điện thoại (chỉ ẩn hiển thị; dữ liệu giữ;
             Hệ/Lương sửa ở tab Lương; Xuất Excel, Nhập Excel, Nhập lương/hệ giữ nguyên).
    V1.8.7 – Hệ TC: có điền → TC × Hệ TC; để trống → TC × hệ cũ (CB × hệ, giờ × hệ: cột Hệ; lương HĐ: 1).
@@ -456,7 +471,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.8.8</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.9.2</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -562,7 +577,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
 
 <!-- CẤU HÌNH -->
 <section id="tab-cfg" class="hide">
-  <div class="bar"><select id="cDept" class="chip" onchange="renderCfg()"></select><button class="btn sm" onclick="newDept()">+ Bộ phận mới</button><span style="flex:1"></span><button class="btn sm" onclick="mergeDept()">Gộp vào tổ khác</button><button class="btn sm danger" onclick="delDept()">Xoá bộ phận</button><button class="btn sm p" onclick="saveDept()">Lưu bộ phận</button></div>
+  <div class="bar"><select id="cDept" class="chip" onchange="renderCfg()"></select><span class="small" style="margin-left:6px;color:var(--muted)">Tháng</span><button class="chip" onclick="shiftCfgMonth(-1)">‹</button><input type="month" id="cMonth" class="chip b" style="width:150px" onchange="renderCfg()"><button class="chip" onclick="shiftCfgMonth(1)">›</button><button class="btn sm" onclick="newDept()">+ Bộ phận mới</button><span style="flex:1"></span><button class="btn sm" onclick="mergeDept()">Gộp vào tổ khác</button><button class="btn sm danger" onclick="delDept()">Xoá bộ phận</button><button class="btn sm p" onclick="saveDept()">Lưu bộ phận</button></div>
   <div class="wrap" id="cfgBody"></div>
 </section>
 </div>
@@ -753,14 +768,18 @@ function lineBoundsDiem(line,R){
   let caHetMs=vnMs(line.date,R.caHet||'16:00'); if(caHetMs<=inMs) caHetMs+=86400000;
   let outMs=line.outTime?vnMs(line.date,line.outTime):caHetMs; if(line.outNextDay) outMs+=86400000; if(outMs<=inMs) outMs+=86400000;
   if(R._khungTT) caHetMs=outMs; /* V1.3.8: khung TT = đủ điểm, không tăng ca */
-  else if(R._ca10) caHetMs=inMs+(Number(R.caGioTT)||10)*3600000; /* V1.4.7: ca N giờ tính từ giờ vào TT, phần dư = TC */
+  else if(R._ca10||R._gioLam) caHetMs=inMs+(Number(R.caGioTT)||10)*3600000; /* V1.4.7: ca N giờ tính từ giờ vào TT, phần dư = TC; V1.9.1: theo giờ làm */
   const hetMs=Math.min(outMs,caHetMs);
   const tcLine=outMs>caHetMs?floorHalf((outMs-caHetMs)/3600000):0;
   const gioCaChuan=r1((caHetMs-vnMs(line.date,R.caVao||'05:00')+(caHetMs<vnMs(line.date,R.caVao||'05:00')?86400000:0))/3600000)||11;
-  return {inMs,caHetMs,hetMs,outMs,hours:r1((hetMs-inMs)/3600000),tcLine,gioCaChuan,diemDu:R.diemDu||10,veSom:hetMs<caHetMs?r1((caHetMs-hetMs)/3600000):0,khongBu:!!R._khongBu,khungTT:!!R._khungTT,ca10:!!R._ca10};
+  return {inMs,caHetMs,hetMs,outMs,hours:r1((hetMs-inMs)/3600000),tcLine,gioCaChuan,diemDu:R.diemDu||10,veSom:hetMs<caHetMs?r1((caHetMs-hetMs)/3600000):0,khongBu:!!R._khongBu,khungTT:!!R._khungTT,ca10:!!R._ca10,gioLam:!!R._gioLam,N:Number(R.caGioTT)||10};
 }
+/* V1.9.1: cách tính "Theo giờ làm" — giờ làm trong khung TT (vào/ra lệch ≤0,5h = đúng giờ TT), làm tròn 0,5 gần nhất;
+   điểm = giờ ÷ N × điểm đủ (làm tròn 0,5 gần nhất, tối đa điểm đủ); TC = giờ vượt N (bù giờ) */
+function roundHalf(x){ return Math.round((x+1e-9)*2)/2; }
+function gioLamCalc(inMs,outMs,L,du,clip){ let a=Math.max(inMs,L.inMs); if(a-L.inMs<=0.5*3600000+1) a=L.inMs; let b=clip?Math.min(outMs,L.outMs):outMs; if(clip&&L.outMs-b<=0.5*3600000+1) b=L.outMs; const g=roundHalf(Math.max(0,(b-a)/3600000)); const N=L.N||10; return {g,diem:Math.min(du,roundHalf(Math.min(g,N)/N*du)),tc:Math.max(0,r1(g-N))}; }
 /* TC theo máy: a = giờ vào thực (đã cắt theo Vào TT), out = giờ ra thực */
-function tcDiemOf(a,out,L){ if(L.khungTT||out<=L.caHetMs) return 0; const gioLam=(out-a)/3600000, sau=(out-L.caHetMs)/3600000; if(L.khongBu) return floorHalf(Math.max(0,sau)); /* V1.3.6: TC không cần bù giờ */ return floorHalf(Math.max(0,Math.min(sau,gioLam-L.gioCaChuan))); }
+function tcDiemOf(a,out,L){ if(L.gioLam) return gioLamCalc(a,out,L,L.diemDu||10,false).tc; /* V1.9.1 */ if(L.khungTT||out<=L.caHetMs) return 0; const gioLam=(out-a)/3600000, sau=(out-L.caHetMs)/3600000; if(L.khongBu) return floorHalf(Math.max(0,sau)); /* V1.3.6: TC không cần bù giờ */ return floorHalf(Math.max(0,Math.min(sau,gioLam-L.gioCaChuan))); }
 function finishDiem(d,diem,tc,R,comMoc){ diem=Math.max(0,r1(diem)); tc=Math.max(0,r1(tc)); const du=R.diemDu||10; d.diem=diem; d.gio=diem; d.gioLam=diem; d.tc=tc; d.cong=R._khungTT?r1(diem/10*10)/10:r1(Math.min(diem,du)/du*10)/10; d.com=comMoc!=null?comMoc:(diem>=(R.comCoMat||5)?1:0)+(tc>=(R.comTC||0.5)?1:0)+(tc>=(R.comK3||5)?1:0); return d; }
 /* V1.3.8: cơm theo mốc giờ (comMoc1..3 trong Cấu hình) — đếm mốc nằm trong [vào, ra] */
 function comTheoMoc(date,inMs,outMs,R){ if(!inMs||!outMs) return 0; let n=0; ['comMoc1','comMoc2','comMoc3'].forEach(k=>{ const t=R[k]; if(!t||!/^\d{2}:\d{2}$/.test(t)) return; let m=vnMs(date,t); if(m<inMs) m+=86400000; if(m>=inMs&&m<=outMs) n++; }); return n; }
@@ -771,9 +790,9 @@ function computeDayDiem(session, line, adj, rules){
   if(adj&&adj.mode){ d.mode=adj.mode; d.dieuChinh=true; }
   if(d.mode==='P'){ d.isP=true; return d; }
   if(d.mode==='xcRieng'){ d.xc=true; d.cong=0; d.xcCong=1; d.diem=0; if(session) d.warn='xcLam'; return d; } /* V1.8.5: XC không lương, chỉ xét ABC */
-  if(!line){ if(session&&session.outMs){ const v={date:vnDate(session.inMs),inTime:R.caVao||'05:00',outTime:R.caHet||'16:00'}; const Lv=lineBoundsDiem(v,R); const a=Math.max(session.inMs,Lv.inMs), bStd=Math.min(session.outMs,Lv.hetMs); d.mh=Math.min(du,floorHalf(Math.max(0,(bStd-a)/3600000))); d.mtc=tcDiemOf(a,session.outMs,Lv); } else if(session) d.thieuRa=true; else d.vang=true; return d; }
+  if(!line){ if(session&&session.outMs){ const v={date:vnDate(session.inMs),inTime:R.caVao||'05:00',outTime:R.caHet||'16:00'}; const Lv=lineBoundsDiem(v,R); const a=Math.max(session.inMs,Lv.inMs), bStd=Math.min(session.outMs,Lv.hetMs); if(Lv.gioLam){ const m=gioLamCalc(session.inMs,session.outMs,Lv,du,false); d.mh=m.diem; d.mtc=m.tc; } else { d.mh=Math.min(du,floorHalf(Math.max(0,(bStd-a)/3600000))); d.mtc=tcDiemOf(a,session.outMs,Lv); } } else if(session) d.thieuRa=true; else d.vang=true; return d; }
   const L=lineBoundsDiem(line,R); d.lineH=L.hours; d.line=L; d.tcLine=L.tcLine;
-  const calc=(inMs,outMs)=>{ const a=Math.max(inMs,L.inMs); const bStd=Math.min(outMs,L.hetMs); const khop=(a-L.inMs)<=0.5*3600000+1&&(L.hetMs-bStd)<=0.5*3600000+1; /* vào/ra trong 0,5h so giờ TT = đủ điểm, dù khung TT ngắn hơn ca chuẩn */ const gioMay=floorHalf(Math.max(0,(bStd-a)/3600000)); const diem=khop?du:(L.khongBu?Math.max(0,r1(du-floorHalf(Math.max(0,L.hours-gioMay)+1e-9))):gioMay); /* V1.3.9: giờ thiếu làm tròn 0,5 → điểm chẵn 0,5 */ /* V1.3.6: TC không bù → điểm = đủ điểm trừ số giờ thiếu trong khung TT (trễ 1h = −1 điểm) */ const tc=L.tcLine>0?tcDiemOf(a,Math.min(outMs,L.outMs),L):0; return {diem:Math.min(diem,du),tc}; };
+  const calc=(inMs,outMs)=>{ if(L.gioLam){ const m=gioLamCalc(inMs,outMs,L,du,true); return {diem:m.diem,tc:m.tc}; } /* V1.9.1 */ const a=Math.max(inMs,L.inMs); const bStd=Math.min(outMs,L.hetMs); const khop=(a-L.inMs)<=0.5*3600000+1&&(L.hetMs-bStd)<=0.5*3600000+1; /* vào/ra trong 0,5h so giờ TT = đủ điểm, dù khung TT ngắn hơn ca chuẩn */ const gioMay=floorHalf(Math.max(0,(bStd-a)/3600000)); const diem=khop?du:(L.khongBu?Math.max(0,r1(du-floorHalf(Math.max(0,L.hours-gioMay)+1e-9))):gioMay); /* V1.3.9: giờ thiếu làm tròn 0,5 → điểm chẵn 0,5 */ /* V1.3.6: TC không bù → điểm = đủ điểm trừ số giờ thiếu trong khung TT (trễ 1h = −1 điểm) */ const tc=L.tcLine>0?tcDiemOf(a,Math.min(outMs,L.outMs),L):0; return {diem:Math.min(diem,du),tc}; };
   if(session&&session.outMs){ const m=calc(session.inMs,session.outMs); d.mh=m.diem; d.mtc=m.tc; d.tre=r1(Math.max(0,session.inMs-L.inMs)/3600000); d.som=r1(Math.max(0,L.outMs-session.outMs)/3600000); }
   else if(session){ d.thieuRa=true; d.tre=r1(Math.max(0,session.inMs-L.inMs)/3600000); } else d.vang=true;
   if(line.xc&&d.mode==='chuyen'){ d.xc=true; d.cong=0; d.xcCong=1; d.diem=0; if(session) d.warn='xcLam'; return d; } /* V1.8.5: XC không lương, chỉ xét ABC */
@@ -781,6 +800,7 @@ function computeDayDiem(session, line, adj, rules){
   switch(d.mode){
     case 'chuyen':
       if(d.vang||d.thieuRa) return d;
+      if(L.gioLam){ diem=d.mh; tc=d.mtc; if(du-d.mh>1e-9){ d.warn=d.tre>=d.som?'tre':'som'; d.theoMay=true; } break; } /* V1.9.1: theo giờ làm thực tế */
       if(du-d.mh>0.5+1e-9){ diem=d.mh; d.warn=d.tre>=d.som?'tre':'som'; d.theoMay=true; } else diem=du;
       tc=L.tcLine>0?(L.tcLine-d.mtc>0.5+1e-9?d.mtc:L.tcLine):0; if(L.tcLine>0&&tc<L.tcLine&&!d.warn){ d.warn=d.tre>d.som?'tre':'som'; d.theoMay=true; }
       break;
@@ -924,7 +944,7 @@ function syncBoPhan(){ const today=vnDate(Date.now()); let n=0; for(const no in 
 function deptTag(e,dept,from,to){ const h=e.deptHist; if(!Array.isArray(h)||!h.length) return ''; const a=deptAt(e,from), b=deptAt(e,to); if(a===dept&&b===dept) return ''; const nm=id=>DEPTS[id]?DEPTS[id].ten:'—'; const ent=h.filter(x=>x.from>from&&x.from<=to); if(!ent.length) return ''; const x=ent[0]; const dd=x.from.slice(8,10)+'/'+x.from.slice(5,7); return x.dept===dept?`<span class="ttb k" title="trước ở ${esc(nm(deptAt(e,addDays(x.from,-1))))}">từ ${dd}</span>`:`<span class="ttb k" title="sang ${esc(nm(x.dept))}">đến ${addDays(x.from,-1).slice(8,10)+'/'+x.from.slice(5,7)}</span>`; }
 function deptEmps(deptId,from,to){ if(from){ to=to||from; return Object.values(EMPS).filter(e=>inDeptRange(e,deptId,from,to)).sort((a,b)=>(a.thuTu||9999)-(b.thuTu||9999)||String(a.employeeNo).localeCompare(String(b.employeeNo),undefined,{numeric:true})); } return Object.values(EMPS).filter(e=>e.boPhan===deptId && e.active!==false).sort((a,b)=>(a.thuTu||9999)-(b.thuTu||9999)||String(a.employeeNo).localeCompare(String(b.employeeNo),undefined,{numeric:true})); }
 function cachDiemOf(deptId){ const d=DEPTS[deptId]||{}; return d.cachDiem||(d.tcKhongBu?'khongbu':'cachuan'); }
-function rulesOf(deptId){ const R=Object.assign({},DEFAULT_RULES,(DEPTS[deptId]&&DEPTS[deptId].rules)||{}); const cd=cachDiemOf(deptId); R._khongBu=cd!=='cachuan'; R._khungTT=cd==='khungTT'; R._ca10=cd==='ca10'; R._comat=(cd==='comat')||isMucNgay(deptId); R._ca24=!!(DEPTS[deptId]&&DEPTS[deptId].ca24); return R; }
+function rulesOf(deptId){ const R=Object.assign({},DEFAULT_RULES,(DEPTS[deptId]&&DEPTS[deptId].rules)||{}); const cd=cachDiemOf(deptId); R._khongBu=cd!=='cachuan'&&cd!=='giolam'; R._khungTT=cd==='khungTT'; R._ca10=cd==='ca10'; R._gioLam=cd==='giolam'; /* V1.9.1 */ R._comat=(cd==='comat')||isMucNgay(deptId); R._ca24=!!(DEPTS[deptId]&&DEPTS[deptId].ca24); return R; }
 
 /* Lấy sự kiện quét của danh sách NV trong khoảng ngày [from,to] (VN), có đệm 1 ngày trước/sau để bắt ca đêm */
 /* V1.5.0: ô báo tải tại chỗ — loadBox(sel, msg) / loadErr(sel, e, retryJs); loadEvents báo tiến trình vào ô đang mở */
@@ -986,12 +1006,33 @@ function autoPrefill(deptId,d){ const R=rulesOf(deptId); const dm=isDiem(deptId)
   for(let g=2;g<=soNhom(deptId);g++){ const gi=R['nhomVao'+g], go=R['nhomRa'+g]; if(gi&&go) l.groups.push({inTime:gi,outTime:go,outNextDay:go<=gi}); } return l; }
 /* giờ ra TT = mốc SỚM NHẤT có ≥2 người (hoặc ≥25% nhóm) ra trong 30 phút — người ra sau đó không bị trừ, người ra trước bị trừ; không có cụm → trung vị */
 function medianRound15(arr){ if(!arr.length) return null; const a=arr.slice().sort((x,y)=>x-y); const need=Math.max(2,Math.ceil(a.length*0.25)); for(let i=0;i<a.length;i++){ let j=i; while(j+1<a.length&&a[j+1]-a[i]<=1800000) j++; if(j-i+1>=need) return Math.round(a[i]/900000)*900000; } const m=a.length%2?a[(a.length-1)/2]:(a[a.length/2-1]+a[a.length/2])/2; return Math.round(m/900000)*900000; }
-function computeDept(deptId, events, from, to){ events=events||[];
+function computeDept0(deptId, events, from, to){ events=events||[];
   if(!isTuChot(deptId)) return computeDeptCore(deptId,events,from,to);
   /* V1.6.3: ghép chuỗi cho từng người → PRE; các ngày TT chốt tay (không auto) giữ nguyên cách khung */
   { const R=rulesOf(deptId); const pf=autoPrefill(deptId,from); const toMin=t=>{ const [h,m]=String(t||'0:0').split(':').map(Number); return h*60+m; }; R._groups=[{in:toMin(pf.inTime),out:toMin(pf.outTime)}].concat((pf.groups||[]).map(g=>({in:toMin(g.inTime),out:toMin(g.outTime)}))); const byNo={}; events.forEach(ev=>{ (byNo[String(ev.employeeNo)]=byNo[String(ev.employeeNo)]||[]).push(ev); }); const pre={}; for(const no in byNo){ const ss=chainSessions(byNo[no],R); const m={}; ss.forEach(x=>{ if(!m[x.date]||(x.outMs&&!m[x.date].outMs)) m[x.date]=x; }); pre[no]=m; } window.__preSess=window.__preSess||{}; window.__preSess[deptId]=pre; }
   try{ return computeDeptAuto(deptId,events,from,to); } finally { if(window.__preSess) delete window.__preSess[deptId]; }
 }
+/* ===== V1.9.0: CẤU HÌNH TỔ THEO THÁNG =====
+   departments/{id}.thang = { 'YYYY-MM': {kieu,cachDiem,...,rules} }. Tháng M dùng bộ gần nhất ≤ M; chưa có bộ nào → cấu hình gốc (như cũ).
+   applyCfgMonth(ym) nạp đúng bộ vào DEPTS (giữ nguyên đối tượng) để mọi chỗ tính công/lương không phải sửa. */
+const CFG_MKEYS=['kieu','cachDiem','tcKhongBu','tuCham','gioCoDinh','tuChotMay','tuNhom','ca24','tcHe','rules'];
+let CFG_YM=''; const NEWDEPTS=new Set();
+function cfgClone(v){ return v===undefined?undefined:JSON.parse(JSON.stringify(v)); }
+function deptBase(d){ if(!Object.prototype.hasOwnProperty.call(d,'__base')){ const b={}; CFG_MKEYS.forEach(k=>{ if(d[k]!==undefined) b[k]=cfgClone(d[k]); }); Object.defineProperty(d,'__base',{value:b,writable:true,enumerable:false,configurable:true}); Object.defineProperty(d,'__applied',{value:undefined,writable:true,enumerable:false,configurable:true}); } return d.__base; }
+function cfgKeyOf(d,ym){ const t=d&&d.thang; if(!t||!ym) return ''; let best=''; for(const k in t){ if(/^\d{4}-\d{2}$/.test(k)&&k<=ym&&k>best) best=k; } return best; }
+function applyCfgMonth(ym){ ym=String(ym||'').slice(0,7); if(!/^\d{4}-\d{2}$/.test(ym)) return; CFG_YM=ym;
+  for(const id in DEPTS){ const d=DEPTS[id]; if(!d||typeof d!=='object') continue; const base=deptBase(d); const k=cfgKeyOf(d,ym); if(!k&&d.__applied===undefined) continue; if(k&&d.__applied===k) continue;
+    const src=k?Object.assign({},base,d.thang[k]):base; CFG_MKEYS.forEach(key=>{ if(src[key]===undefined) delete d[key]; else d[key]=cfgClone(src[key]); }); d.__applied=k; } }
+function computeDept(deptId, events, from, to){ const m1=String(from).slice(0,7), m2=String(to).slice(0,7); const d=DEPTS[deptId];
+  if(m1===m2||cfgKeyOf(d,m1)===cfgKeyOf(d,m2)){ applyCfgMonth(m2); const r=computeDept0(deptId,events,from,to); if(r&&typeof r==='object') Object.defineProperty(r,'__ev',{value:events,enumerable:false,configurable:true}); return r; }
+  /* khoảng ngày trải 2 tháng có cấu hình khác nhau: tính từng tháng theo đúng cấu hình tháng đó rồi ghép ngày */
+  const out={}; let a=from;
+  while(a<=to){ const ym=a.slice(0,7); const last=ym+'-'+pad(monthDays(ym)); const b=last<to?last:to; applyCfgMonth(ym); const r=computeDept0(deptId,events,a===from?a:addDays(a,-1),b);
+    for(const no in r){ if(!out[no]) out[no]=Object.assign({},r[no],{days:{}}); const dd=r[no].days||{}; for(const k in dd){ if(k>=a&&k<=b) out[no].days[k]=dd[k]; } out[no].month=r[no].month; }
+    a=addDays(b,1); }
+  applyCfgMonth(m2); Object.defineProperty(out,'__ev',{value:events,enumerable:false,configurable:true}); return out; }
+function cfgMonth(){ const el=$('#cMonth'); if(el&&!el.value) el.value=todayVN().slice(0,7); return (el&&el.value)||todayVN().slice(0,7); }
+function shiftCfgMonth(k){ const [y,m]=cfgMonth().split('-').map(Number); const t=new Date(Date.UTC(y,m-1+k,1)); $('#cMonth').value=t.getUTCFullYear()+'-'+pad(t.getUTCMonth()+1); renderCfg(); }
 function computeDeptAuto(deptId, events, from, to){
   if(isTuNhom(deptId)){ /* lượt 1: ghép ca theo ngày (không khung) để lấy giờ vào/ra thật, rồi gom nhóm */
     const keysN=[]; const saved={}; for(let d=addDays(from,-1); d<=addDays(to,1); d=addDays(d,1)){ const k=deptId+'_'+d; const l=LINES[k]; if(l&&l.xc) continue; if(l&&l.inTime&&!l.auto){ continue; } saved[k]=l; delete LINES[k]; keysN.push(d); }
@@ -1145,7 +1186,16 @@ function exportTong(){ if(!TONG||typeof ExcelJS==='undefined') return; const {ct
   const rt=8+rows.length; ws.getCell(rt,2).value=''; ws.getCell(rt,3).value='TỔNG CỘNG'; ws.getCell(rt,4).value={formula:`SUM(D8:D${rt-1})`,result:rows.reduce((a,r)=>a+r.tien,0)}; ws.getCell(rt,4).numFmt='#,##0'; for(let c=2;c<=5;c++){ const cell=ws.getCell(rt,c); cell.font=F(11,true); cell.border=box; }
   ws.getColumn(2).width=6; ws.getColumn(3).width=40; ws.getColumn(4).width=18; ws.getColumn(5).width=24;
   wb.xlsx.writeBuffer().then(buf=>{ const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`TongHopLuong-${slug(cty)}-${ym}.xlsx`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); }); }
-function canEditCham(dept,date){ if(isLocked(dept,date)) return false; if(ME.role!=='totruong') return true; return !lineClosed(dept,date); }
+function canEditCham(dept,date){ if(isLocked(dept,date)) return false; if(ME.role!=='totruong') return true; return !ttKhoaNgay(dept,date); } /* V1.9.0: tổ trưởng tự khoá sau 24h (bỏ Chốt ngày) */
+function lockAnchorMs(dept,date){ const l=lineOf(dept,date); if(l&&!l.auto&&(l.inTime||l.xc)){ const t=tsMs(l.chotAt)||tsMs(l.at); if(t) return t; }
+  if(isTuCham(dept)&&!isTuChot(dept)&&!isCoDinh(dept)&&!isComat(dept)) return null; /* tổ tổ trưởng phải chốt giờ mà chưa chốt → chưa khoá */
+  let rows=null; if(CHAMCTX&&CHAMCTX.dept===dept&&CHAMCTX.date===date&&CHAM) rows=CHAM; else if(MONTHCTX&&MONTHCTX.dept===dept&&MONTH) rows=MONTH;
+  let mx=0; if(rows){ const evs=rows.__ev||[]; const d0=vnMs(date,'00:00'), d1=vnMs(addDays(date,1),'00:00');
+    for(const no in rows){ const d=rows[no]&&rows[no].days&&rows[no].days[date]; if(!d||d.otherDept) continue; let o=Math.max(Number(d.out)||0,(d.session&&Number(d.session.outMs))||0); if(d.session&&d.session.scans) d.session.scans.forEach(x=>{ if(x.ms>o) o=x.ms; });
+      if(!o||d.thieuRa){ const from=Math.max(d0,(d.session&&Number(d.session.inMs))||0); evs.forEach(e=>{ if(String(e.employeeNo)===no&&e.ms>from&&e.ms<d1&&e.ms>o) o=e.ms; }); } /* lượt quét thật trong ngày (kể cả chưa ghép) */
+      if(o>mx) mx=o; } }
+  return mx||null; } /* mốc: lần Chốt giờ đầu tiên; tổ không chốt giờ → giờ ra của người về muộn nhất */
+function ttKhoaNgay(dept,date){ const a=lockAnchorMs(dept,date); return !!a&&Date.now()>=a+24*3600000; }
 function renderCham(){
   const {dept,date}=CHAMCTX; const R=rulesOf(dept); const line=lineOf(dept,date); const rows=Object.values(CHAM); const closed=!!(line&&line.closed);
   // khung giờ tổ trưởng
@@ -1154,8 +1204,8 @@ function renderCham(){
   else if(dm){ const L=lineBoundsDiem(line,R); sum=`${line.inTime} → ${vnTime(L.hetMs)} = ${R.diemDu||10} điểm (1 công)${L.veSom&&!L.ca10?` · về sớm ${fmtH(L.veSom)}h so ca chuẩn ${R.caHet||'16:00'}`:''}${L.tcLine?` · TC ${L.ca10?vnTime(L.caHetMs):(R.caHet||'16:00')} → ${line.outTime} = ${fmtH(L.tcLine)}h ${L.khongBu?'':' (đủ '+fmtH(L.gioCaChuan)+'h mới tính)'}`:' · không TC'} · cơm ${finishDiem({},R.diemDu||10,L.tcLine,R).com}`; } else { const L=lineBounds(line); const t=finishDay({},L.hours,R); const od=vnDate(L.outMs); sum=`${line.inTime} → ${line.outTime}${od!==date?' ('+od.slice(8,10)+'/'+od.slice(5,7)+')':''} = ${fmtH(L.hours)}h · ${fmtH(t.gioLam)} giờ làm + TC ${fmtH(t.tc)} · cơm ${t.com}`; } }
   if(line&&!xc&&soNhom(dept,line)>1){ const parts=[]; for(let g=0;g<soNhom(dept,line);g++){ const v=lineVariant(line,g); if(!v||!v.inTime) continue; const cnt=rows.filter(r=>r.days[date].nhom===g&&r.days[date].in&&!r.days[date].isP).length; parts.push(`N${g+1} ${v.inTime}→${v.outTime}${dm?'':' = '+fmtH(lineBounds(v).hours)+'h'} · ${cnt} người`); } sum=parts.join(' · '); }
   const edit=canEditCham(dept,date);
-  $('#cLine').innerHTML=`<div class="line ${xc?'xc':''} ${closed?'closed':''}"><h4>GIỜ TỔ TRƯỞNG ${fmtDateVN(date).toUpperCase()}${closed?' · ĐÃ CHỐT NGÀY':line?(xc?' · XC CẢ TỔ':(line.auto?' · <span style="color:var(--teal)">'+(line.autoNhom?'TỰ NHẬN NHÓM THEO MÁY — '+(line.groups.length+1)+' nhóm':'TỰ CHỐT THEO MÁY'+(line.autoMed?' (giờ ra = lúc nhóm bắt đầu về)':' (giờ điền sẵn)'))+'</span>':(line.autoMed?' · đã chốt giờ · <span style="color:var(--teal)">giờ ra lấy theo lúc nhóm về</span>':' · đã chốt giờ'))):' · <span style="color:var(--rust)">CHƯA CHỐT GIỜ</span>'}</h4>
-   <div class="f ${soNhom(dept,line)>1?'fg':''}">${soNhom(dept,line)>1?'<span class="tag n1">N1</span>':''}<span>Vào</span><input type="time" id="lIn" value="${li}" ${!edit?'disabled':''}><span>Ra</span><input type="time" id="lOut" value="${lo}" ${!edit?'disabled':''}>${dm?`<span class="small">${R._khungTT?`khung giờ tổ trưởng = ${R.diemDu||10} điểm · không TC · cơm qua mốc ${['comMoc1','comMoc2','comMoc3'].map(k=>R[k]).filter(Boolean).join(', ')||'(chưa đặt)'}`:R._ca10?`${Number(R.caGioTT)||10}h đầu tính từ giờ vào TT = ${R.diemDu||10} điểm · phần sau là tăng ca (không bù)`:`ca chuẩn ${R.caVao||'05:00'}–${R.caHet||'16:00'} = ${R.diemDu||10} điểm · ra sau ${R.caHet||'16:00'} là tăng ca`}</span>`:''}<label class="chk"><input type="checkbox" id="lNext" ${nd?'checked':''} ${!edit?'disabled':''}> <span class="lg">Ra hôm sau</span><span class="sh">mai</span></label></div>
+  $('#cLine').innerHTML=`<div class="line ${xc?'xc':''} ${(ME.role==='totruong'&&!edit)?'closed':''}"><h4>GIỜ TỔ TRƯỞNG ${fmtDateVN(date).toUpperCase()}${(ME.role==='totruong'&&!edit&&!isLocked(dept,date))?' · ĐÃ KHOÁ':line?(xc?' · XC CẢ TỔ':(line.auto?' · <span style="color:var(--teal)">'+(line.autoNhom?'TỰ NHẬN NHÓM THEO MÁY — '+(line.groups.length+1)+' nhóm':'TỰ CHỐT THEO MÁY'+(line.autoMed?' (giờ ra = lúc nhóm bắt đầu về)':' (giờ điền sẵn)'))+'</span>':(line.autoMed?' · đã chốt giờ · <span style="color:var(--teal)">giờ ra lấy theo lúc nhóm về</span>':' · đã chốt giờ'))):' · <span style="color:var(--rust)">CHƯA CHỐT GIỜ</span>'}</h4>
+   <div class="f ${soNhom(dept,line)>1?'fg':''}">${soNhom(dept,line)>1?'<span class="tag n1">N1</span>':''}<span>Vào</span><input type="time" id="lIn" value="${li}" ${!edit?'disabled':''}><span>Ra</span><input type="time" id="lOut" value="${lo}" ${!edit?'disabled':''}>${dm?`<span class="small">${R._khungTT?`khung giờ tổ trưởng = ${R.diemDu||10} điểm · không TC · cơm qua mốc ${['comMoc1','comMoc2','comMoc3'].map(k=>R[k]).filter(Boolean).join(', ')||'(chưa đặt)'}`:R._gioLam?`${Number(R.caGioTT)||10}h làm = ${R.diemDu||10} điểm (thiếu trừ theo tỉ lệ) · vượt ${Number(R.caGioTT)||10}h là tăng ca (bù giờ)`:R._ca10?`${Number(R.caGioTT)||10}h đầu tính từ giờ vào TT = ${R.diemDu||10} điểm · phần sau là tăng ca (không bù)`:`ca chuẩn ${R.caVao||'05:00'}–${R.caHet||'16:00'} = ${R.diemDu||10} điểm · ra sau ${R.caHet||'16:00'} là tăng ca`}</span>`:''}<label class="chk"><input type="checkbox" id="lNext" ${nd?'checked':''} ${!edit?'disabled':''}> <span class="lg">Ra hôm sau</span><span class="sh">mai</span></label></div>
    ${Array.from({length:soNhom(dept,line)-1},(_,k)=>{ const g=k+2; const G=(line&&line.groups&&line.groups[k])||{}; return `<div class="f fg" style="margin-top:6px"><span class="tag n${g}">N${g}</span><span>Vào</span><input type="time" id="lIn${g}" value="${line?(G.inTime||''):(cd?(R['nhomVao'+g]||''):'')}" ${!edit?'disabled':''}><span>Ra</span><input type="time" id="lOut${g}" value="${line?(G.outTime||''):(cd?(R['nhomRa'+g]||''):'')}" ${!edit?'disabled':''}><label class="chk"><input type="checkbox" id="lNext${g}" ${G.outNextDay?'checked':''} ${!edit?'disabled':''}> <span class="lg">Ra hôm sau</span><span class="sh">mai</span></label></div>`; }).join('')}
    <div class="sm2"><span>${line&&line.autoInfo&&line.autoInfo.length?`<div class="small" style="margin-bottom:4px">${line.autoInfo.map((t,i)=>`<span class="tag n${i+1}">N${i+1}</span> ${esc(t)}`).join(' &nbsp;·&nbsp; ')}</div>`:''}${sum||(cd?`Chưa chốt · giờ đã điền sẵn theo ca chuẩn, kiểm tra rồi bấm Chốt giờ (sửa nếu ngày này khác)`:dm?`Chưa chốt · nhập giờ Vào và giờ Ra tổ trưởng rồi bấm Chốt giờ (máy đang tạm tính theo ca chuẩn ${R.caVao||'05:00'}–${R.caHet||'16:00'})`:`Chưa chốt · nhập giờ Vào/Ra rồi bấm Chốt giờ (máy đang tạm tính theo lượt quét đầu → cuối trong ngày)`)}</span><span>${line&&line.by?`<span class="small">${esc(line.by)} · ${line.at?new Date(line.at.toMillis()).toLocaleString('vi-VN'):''}</span> `:''}<button class="btn sm p" onclick="saveLine()" ${!edit?'disabled':''}>${line?(line.auto?'Chốt giờ tay (ghi đè)':'Cập nhật giờ'):'Chốt giờ'}</button></span></div></div>`;
   // thanh công cụ theo tick
@@ -1175,7 +1225,7 @@ function renderCham(){
   const sorted=[...rows].sort((a,b)=>order(a.days[date])-order(b.days[date])||(idx[String(a.emp.employeeNo)]??9999)-(idx[String(b.emp.employeeNo)]??9999));
   let nTop=CFILTER?sorted.filter(r=>order(r.days[date])===0).length:0;
   $('#cList').innerHTML=sorted.map((r,i)=>(CFILTER&&i===nTop&&nTop>0?'<div class="csep"></div>':'')+rowCham(r,date,line,i+1)).join('')||'<div class="small" style="padding:14px">Chưa có nhân viên trong tổ.</div>';
-  $('#cFoot').innerHTML=edit?`<button class="btn" onclick="showChamWarn()">Xem cảnh báo (${c.warn+c.thieu})</button><button class="btn p" onclick="closeDay()" ${closed||live?'disabled':''} title="${live?'Chưa hết giờ chuyền':''}">${closed?'Đã chốt ngày':live?'Chốt ngày (sau giờ ra chuyền)':'Chốt ngày '+date.slice(8,10)+'/'+date.slice(5,7)}</button>`:`<div class="note info" style="margin:0;flex:1">Ngày này đã chốt. Cần sửa thì báo kế toán.</div>`;
+  $('#cFoot').innerHTML=edit?`<button class="btn" onclick="showChamWarn()">Xem cảnh báo (${c.warn+c.thieu})</button>`:`<div class="note info" style="margin:0;flex:1">${isLocked(dept,date)?'Tháng đã khoá — chỉ xem.':'Ngày này đã khoá. Cần sửa thì báo kế toán.'}</div>`; /* V1.9.0: bỏ nút Chốt ngày */
 }
 function rowCham(r,date,line,stt){
   const e=r.emp,d=r.days[date]; let cls='',io='',flag='',h='',sub='';
@@ -1205,13 +1255,13 @@ function rowCham(r,date,line,stt){
   return `<div class="emp ${cls} ${on?'sel':''}"><span class="stt">${stt||''}</span><input type="checkbox" class="cb" ${on?'checked':''} onclick="event.stopPropagation();toggleSel('${esc(no)}',this.checked)"><div style="flex:1;min-width:0;cursor:pointer" onclick="openCham('${esc(no)}','${date}')"><div class="n">${d.dieuChinh&&!d.isP&&!d.xc?(d.mode==='tay'?'<span class="ttb k">Nhập tay</span> ':d.mode==='may'?'<span class="ttb g">XN máy</span> ':'<span class="ttb">Giờ TT</span> '):''}${soNhom(CHAMCTX.dept,line)>1&&d.in?`<span class="tag n${(d.nhom||0)+1}" title="${d.nhomForced?'tổ trưởng chọn':'tự xếp theo giờ vào'}">N${(d.nhom||0)+1}${d.nhomForced?'*':''}</span> `:''}${esc(e.name)}${e.chucVu?' <span class="m">'+esc(e.chucVu)+'</span>':''}${ME.role==='totruong'&&maxTT(CHAMCTX.dept)>0?` <span class="m" style="color:${ttCount(no,date.slice(0,7))>=maxTT(CHAMCTX.dept)?'var(--rust)':'var(--muted)'}">· ${ttCount(no,date.slice(0,7))}/${maxTT(CHAMCTX.dept)}</span>`:''}</div><div class="io">${io}</div>${flag}</div><div class="h"><span class="fsh ${fc}">${fs}</span><b><span class="lg">${h}</span><span class="sh">${d.isP?'P':d.xc?'XC':(d.chuaChot||d.vang||d.thieuRa)?h:(d.isDiem?fmtH(d.diem)+(d.tc?'+'+fmtH(d.tc):''):fmtH(d.gio)+'h')}</span></b><small>${sub}</small></div></div>`;
 }
 async function saveLine(keepXc){ if(CHAMCTX&&isLocked(CHAMCTX.dept,CHAMCTX.date)){ toast('Tháng đã khoá.'); return; } if(CHAMCTX&&LINES[CHAMCTX.dept+'_'+CHAMCTX.date]&&LINES[CHAMCTX.dept+'_'+CHAMCTX.date].auto){ const a=LINES[CHAMCTX.dept+'_'+CHAMCTX.date]; LINES[CHAMCTX.dept+'_'+CHAMCTX.date]=Object.assign({},a.closed?{closed:true}:{},a.bcNote?{bcNote:a.bcNote}:{}); } /* V1.5.7: ghi đè dòng tự chốt */
-  const {dept,date}=CHAMCTX; if(!canEditCham(dept,date)){ toast('Ngày đã chốt.'); return; }
+  const {dept,date}=CHAMCTX; if(!canEditCham(dept,date)){ toast('Ngày đã khoá.'); return; }
   const prev=lineOf(dept,date)||{}; const dm=isDiem(dept); const R=rulesOf(dept); const inT=$('#lIn')?$('#lIn').value:prev.inTime; let outT=$('#lOut')?$('#lOut').value:prev.outTime; const hetT=dm?(R.caHet||'16:00'):null;
   if(!inT||!outT){ toast('Nhập đủ giờ vào và giờ ra rồi mới Chốt giờ.'); return; }
   { const nd=$('#lNext')?$('#lNext').checked:!!prev.outNextDay; const Lh=lineBounds({date,inTime:inT,outTime:outT,outNextDay:nd}).hours;
     if(!dm&&Lh>16&&!confirm(`Chuyền ${inT} → ${outT}${nd?' hôm sau':''} = ${fmtH(Lh)} giờ — dài bất thường (12 giờ đêm là 12:00 SA / 00:00). Vẫn lưu?`)) return; }
   const groups=[]; for(let g=2;g<=soNhom(dept,lineOf(dept,date));g++){ const gi=$('#lIn'+g), go=$('#lOut'+g), gn=$('#lNext'+g); if(gi&&gi.value) groups.push({inTime:gi.value,outTime:(go&&go.value)||outT,outNextDay:!!(gn&&gn.checked)}); else if(prev.groups&&prev.groups[g-2]) groups.push(prev.groups[g-2]); }
-  const l={deptId:dept,date,inTime:inT,outTime:outT,hetTime:dm?hetT:null,groups,outNextDay:$('#lNext')?$('#lNext').checked:!!prev.outNextDay,xc:typeof keepXc==='boolean'?keepXc:!!prev.xc,closed:!!prev.closed,by:ME.name,byUser:ME.username,at:TS.now()};
+  const l={deptId:dept,date,inTime:inT,outTime:outT,hetTime:dm?hetT:null,groups,outNextDay:$('#lNext')?$('#lNext').checked:!!prev.outNextDay,xc:typeof keepXc==='boolean'?keepXc:!!prev.xc,closed:!!prev.closed,chotAt:prev.chotAt||((prev.at&&!prev.auto)?prev.at:TS.now()),by:ME.name,byUser:ME.username,at:TS.now()}; /* V1.9.0: giữ mốc chốt giờ đầu tiên */
   try{ await db.collection('lines').doc(dept+'_'+date).set(l); }catch(e){ toast(errMsg(e),8000); return; }
   LINES[dept+'_'+date]=l; await db.collection('lines').doc(dept+'_'+date).collection('log').add(l).catch(()=>{});
   Object.keys(EVCACHE).forEach(k=>{}); loadCham(); toast(l.xc?'Đã ghi XC cả tổ':'Đã chốt giờ '+inT+'–'+outT);
@@ -1235,7 +1285,7 @@ function toggleSel(no,on){ if(on) cSel.add(no); else cSel.delete(no); renderCham
 function selAllCham(on){ cSel=new Set(on?Object.keys(CHAM):[]); renderCham(); }
 const BULK={ttGio:{mode:'chuyenDu',title:'Giờ theo tổ trưởng cho',sub:'trả đủ giờ tổ trưởng dù máy thấp hơn; không quét = có mặt máy không nhận; thiếu quét ra = ra theo giờ TT',reason:'Tổ trưởng trả đủ giờ',btn:'Xác nhận'},mayGio:{mode:'may',title:'Giờ theo máy cho',sub:'giữ nguyên giờ máy, tổ trưởng xác nhận đã xem',reason:'Tổ trưởng xác nhận giờ máy',btn:'Xác nhận'},xc:{mode:'xcRieng',title:'Xả ca (XC) cho',sub:'mỗi người 1 công, không giờ, không cơm',reason:'XC · xả ca (tổ trưởng)',btn:'Xác nhận XC'},P:{mode:'P',title:'Đánh P · nghỉ phép cho',sub:'không lương, không tính công',reason:'P · nghỉ phép (tổ trưởng)',btn:'Xác nhận P'},reset:{title:'Bỏ điều chỉnh cho',sub:'xoá mọi điều chỉnh (P, XC, Giờ theo TT, XN máy, nhập tay) — app tính lại theo máy + giờ tổ trưởng',btn:'Bỏ điều chỉnh'}};
 async function bulkCham(kind){ if(CHAMCTX&&isLocked(CHAMCTX.dept,CHAMCTX.date)){ toast('Tháng đã khoá.'); return; }
-  const {dept,date}=CHAMCTX; if(!canEditCham(dept,date)){ toast('Ngày đã chốt.'); return; }
+  const {dept,date}=CHAMCTX; if(!canEditCham(dept,date)){ toast('Ngày đã khoá.'); return; }
   let nos=[...cSel].filter(no=>CHAM[no]);
   if(!nos.length){ if(!confirm('Chưa tick ai. Áp dụng cho CẢ TỔ ('+Object.keys(CHAM).length+' người)?')) return; nos=Object.keys(CHAM); }
   const line=lineOf(dept,date); const B=BULK[kind];
@@ -1272,7 +1322,7 @@ async function bulkChamDo(kind){
   cSel.clear(); closeModal(); toast('Đã áp dụng cho '+nos.length+' người'); loadCham();
 }
 
-async function bulkNhom(g){ const {dept,date}=CHAMCTX; if(!canEditCham(dept,date)){ toast('Ngày đã chốt.'); return; } let nos=[...cSel].filter(no=>CHAM[no]); if(!nos.length){ toast('Tick người cần đổi nhóm.'); return; }
+async function bulkNhom(g){ const {dept,date}=CHAMCTX; if(!canEditCham(dept,date)){ toast('Ngày đã khoá.'); return; } let nos=[...cSel].filter(no=>CHAM[no]); if(!nos.length){ toast('Tick người cần đổi nhóm.'); return; }
   let b=db.batch(); for(const no of nos){ const ref=db.collection('adjustments').doc(no+'_'+date); const cur=ADJ[no+'_'+date]||{employeeNo:no,date}; const doc=Object.assign({},cur,{nhom:g,by:ME.name,byUser:ME.username,byRole:ME.role,at:TS.now()}); b.set(ref,doc); }
   try{ await b.commit(); }catch(e){ toast(errMsg(e),8000); return; } cSel.clear(); toast(`Đã chuyển ${nos.length} người sang nhóm ${g+1} (ngày ${date.slice(8,10)}/${date.slice(5,7)})`); loadCham(); }
 /* ---- sửa 1 người ---- */
@@ -1459,7 +1509,7 @@ function renderDetail(){ if(!DETAIL) return; const {from,to,dept,rows,nDays}=DET
   $('#dtSum').style.display=''; $('#dtSum').innerHTML=`${fmtDateVN(from)} → ${fmtDateVN(to)} · ${single?esc(DEPTS[dept].ten):'Tất cả tổ'} · ${nPeople} người · ${nScan} lượt quét · <b>${nThieu} ngày thiếu quét ra</b> · <b>${nStray} lượt lẻ bị bỏ</b>${single?` · đã chốt ${chot.length}/${nDays} ngày`:''}${prob?` · đang lọc: ${list.length} dòng có vấn đề`:''}`;
   const col={g:'var(--moss)',a:'var(--amber)',r:'var(--rust)',m:'var(--muted)',b:'var(--blue)',t:'var(--teal)',k:'var(--pink)'};
   let h='<table><tr><th>Ngày</th><th class="l">Họ tên</th><th class="l">Các lượt quét trong ngày (máy)</th><th>Vào → Ra</th><th>Giờ máy</th><th class="l">Chấm</th></tr>'; let last='';
-  for(const r of list){ if(r.date!==last){ last=r.date; const l=single?lineOf(dept,r.date):null; h+=`<tr><td colspan="6" style="background:var(--paper,#F4F6F9);font-weight:700;text-align:left">${fmtDateVN(r.date)}${single?(l?(l.xc?' · XC cả tổ':` · giờ TT ${lineGroupsOf(dept,l).map((v,i)=>(lineGroupsOf(dept,l).length>1?'N'+(i+1)+' ':'')+v.inTime+' → '+(v.outTime||'')+(v.outNextDay||(v.outTime&&v.outTime<=v.inTime)?' (hôm sau)':'')).join(' · ')}${l.closed?' · đã chốt ngày':(l.auto?' · tự chốt':' · đã chốt giờ')}`):' · <span style="color:var(--rust)">chưa chốt giờ</span>'):''}</td></tr>`; }
+  for(const r of list){ if(r.date!==last){ last=r.date; const l=single?lineOf(dept,r.date):null; h+=`<tr><td colspan="6" style="background:var(--paper,#F4F6F9);font-weight:700;text-align:left">${fmtDateVN(r.date)}${single?(l?(l.xc?' · XC cả tổ':` · giờ TT ${lineGroupsOf(dept,l).map((v,i)=>(lineGroupsOf(dept,l).length>1?'N'+(i+1)+' ':'')+v.inTime+' → '+(v.outTime||'')+(v.outNextDay||(v.outTime&&v.outTime<=v.inTime)?' (hôm sau)':'')).join(' · ')}${l.auto?' · tự chốt':' · đã chốt giờ'}`):' · <span style="color:var(--rust)">chưa chốt giờ</span>'):''}</td></tr>`; }
     const [txt,c]=detailChamText(r.d,r.dept); const chips=r.sc.length?r.sc.map(x=>`<span class="dsc ${x.kind}" title="${x.kind==='stray'?'lượt lẻ, không dùng':x.kind==='in'?'vào':x.kind==='out'?'ra':x.kind==='prev'?'thuộc ca ngày '+(x.owner||'').slice(8,10)+'/'+(x.owner||'').slice(5,7):'giữa ca'}">${vnTime(x.ms)}${x.next?' <small>'+dLbl(x.ms)+'</small>':''} <small>${esc(devShort(x.mac))}</small>${x.kind==='prev'?` <small>ca ${(x.owner||'').slice(8,10)}/${(x.owner||'').slice(5,7)}</small>`:''}</span>`).join(''):'<span class="small">không có lượt quét</span>';
     h+=`<tr><td>${r.date.slice(8,10)}/${r.date.slice(5,7)}</td><td class="l stk" style="cursor:pointer" onclick="openAdj('${esc(r.no)}','${r.date}')">${esc(r.emp.name)}${!single?` <small class="small">${esc(DEPTS[r.dept]?DEPTS[r.dept].ten:'')}</small>`:''}</td><td class="l">${chips}</td><td>${r.d.in?vnTime(r.d.in)+' → '+(r.d.out?vnTime(r.d.out)+(vnDate(r.d.out)!==r.date?' '+dLbl(r.d.out):''):'<span style="color:var(--rust)">?</span>'):'—'}</td><td>${r.d.mh!=null?fmtH(r.d.mh):(r.d.in&&r.d.out?fmtH(r1((r.d.out-r.d.in)/3600000)):'—')}</td><td class="l" style="color:${col[c]};font-weight:600">${txt}</td></tr>`; }
   if(!list.length) h+='<tr><td colspan="6" class="small">Không có dòng nào.</td></tr>';
@@ -1753,7 +1803,7 @@ function renderPayDiem(){
     T.diem+=m.diem;T.xc+=m.xc;T.cong+=m.cong;T.tc+=m.tc;T.com+=m.com;T.tienGio+=m.tienGio;T.tienTC+=m.tienTC;T.tienCom+=m.tienCom;T.baoTay+=m.tienBaoTay||0;T.sl+=SL.tien;T.cc+=cc;T.bu+=Number(p.bu||0);T.tong+=tong;T.bh+=Number(p.baoHiem||0);T.thuc+=thuc;
     h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)} ${deptTag(e,dept,ym+'-01',ym+'-'+pad(monthDays(ym)))}</td><td>${luongInput(e)}</td>${R._khungTT?`<td>${heInput(e)}</td>`:''}<td>${String(Math.round(m.diem*10)/100).replace('.',',')}</td><td>${m.xc}</td><td><b>${fmtH(m.congXep)}</b></td><td>${fmtH(m.tc)}</td><td>${m.com}</td><td class="num">${fmtN(m.tienGio)}</td><td class="num">${fmtN(m.tienTC)}</td><td class="num">${fmtN(m.tienCom)}</td>${bt?`<td>${btInput(e)}</td><td class="num">${fmtN(m.tienBaoTay||0)}</td>`:''}<td class="num" title="Ngày có sản lượng: ${SL.days.join(', ')||'—'}">${fmtN(SL.tien)}</td><td>${ccInput(e,p)}</td>${payInputs(e,p,tong,thuc)}</tr>`; });
   h+=`<tr><td class="tot"></td><td class="l stk tot">Tổng (${list.length}${list.length!==all.length?'/'+all.length:''} NV)</td><td class="tot"></td>${R._khungTT?'<td class="tot"></td>':''}<td class="tot">${String(Math.round(T.diem*10)/100).replace('.',',')}</td><td class="tot">${T.xc}</td><td class="tot">${fmtH(T.cong)}</td><td class="tot">${fmtH(T.tc)}</td><td class="tot">${T.com}</td><td class="num tot">${fmtN(T.tienGio)}</td><td class="num tot">${fmtN(T.tienTC)}</td><td class="num tot">${fmtN(T.tienCom)}</td>${bt?`<td class="tot"></td><td class="num tot">${fmtN(T.baoTay)}</td>`:''}<td class="num tot">${fmtN(T.sl)}</td><td class="num tot">${fmtN(T.cc)}</td><td class="num tot">${fmtN(T.bu)}</td><td class="num tot">${fmtN(T.tong)}</td><td class="num tot">${fmtN(T.bh)}</td><td class="num tot">${fmtN(T.thuc)}</td><td class="tot"></td></tr></table>`;
-  $('#pTbl').innerHTML=h; $('#pNote').innerHTML=`<div class="note info">Công thức: ${R._ca10?`${Number(R.caGioTT)||10}h đầu tính từ giờ vào TT = đủ ${R.diemDu||10} điểm (thiếu giờ trừ điểm) · TC = giờ sau mốc ${Number(R.caGioTT)||10}h (không bù) × ${fmtN(R.donGiaTC)}`:R._khungTT?`khung giờ tổ trưởng = đủ ${R.diemDu||10} điểm, vào trễ/về sớm trừ 1 điểm mỗi giờ thiếu · không tăng ca · cơm theo mốc giờ · tiền công × hệ số`:R._khongBu?`điểm = giờ máy trong khung Vào–Ra TT (khớp = đủ ${R.diemDu||10}, thiếu giờ trừ điểm) · TC = toàn bộ giờ sau ${R.caHet||'16:00'} (không bù) × ${fmtN(R.donGiaTC)}`:`điểm/ngày = giờ máy trong khung Vào–Ra tổ trưởng (ra ≥ giờ Ra TT −0,5h = đủ ${R.diemDu||10}) · TC = giờ sau ${R.caHet||'16:00'} nhưng phải làm đủ ca chuẩn ${R.caVao||'05:00'}–${R.caHet||'16:00'} × ${fmtN(R.donGiaTC)}`} · công = điểm ÷ ${R._khungTT?10:(R.diemDu||10)} · tiền công = lương tháng ÷ 30 × công + cơm × ${fmtN(R.donGiaCom)}${bt?' + bao tay '+fmtN(R.baoTay)+' × ngày đi làm':''} + sản lượng (Σ mức ngày × công ngày; ngày đủ = 100%, ngày lẻ theo điểm, XC/P = 0) + chuyên cần (nhập tay) + bù. Công = điểm ÷ 10 (đã gồm XC), dùng xét ABC/chuyên cần.</div>`;
+  $('#pTbl').innerHTML=h; $('#pNote').innerHTML=`<div class="note info">Công thức: ${R._gioLam?`điểm = giờ làm ÷ ${Number(R.caGioTT)||10} × ${R.diemDu||10} (làm tròn 0,5) · TC = giờ vượt ${Number(R.caGioTT)||10}h (bù giờ) × ${fmtN(R.donGiaTC)}`:R._ca10?`${Number(R.caGioTT)||10}h đầu tính từ giờ vào TT = đủ ${R.diemDu||10} điểm (thiếu giờ trừ điểm) · TC = giờ sau mốc ${Number(R.caGioTT)||10}h (không bù) × ${fmtN(R.donGiaTC)}`:R._khungTT?`khung giờ tổ trưởng = đủ ${R.diemDu||10} điểm, vào trễ/về sớm trừ 1 điểm mỗi giờ thiếu · không tăng ca · cơm theo mốc giờ · tiền công × hệ số`:R._khongBu?`điểm = giờ máy trong khung Vào–Ra TT (khớp = đủ ${R.diemDu||10}, thiếu giờ trừ điểm) · TC = toàn bộ giờ sau ${R.caHet||'16:00'} (không bù) × ${fmtN(R.donGiaTC)}`:`điểm/ngày = giờ máy trong khung Vào–Ra tổ trưởng (ra ≥ giờ Ra TT −0,5h = đủ ${R.diemDu||10}) · TC = giờ sau ${R.caHet||'16:00'} nhưng phải làm đủ ca chuẩn ${R.caVao||'05:00'}–${R.caHet||'16:00'} × ${fmtN(R.donGiaTC)}`} · công = điểm ÷ ${R._khungTT?10:(R.diemDu||10)} · tiền công = lương tháng ÷ 30 × công + cơm × ${fmtN(R.donGiaCom)}${bt?' + bao tay '+fmtN(R.baoTay)+' × ngày đi làm':''} + sản lượng (Σ mức ngày × công ngày; ngày đủ = 100%, ngày lẻ theo điểm, XC/P = 0) + chuyên cần (nhập tay) + bù. Công = điểm ÷ 10 (đã gồm XC), dùng xét ABC/chuyên cần.</div>`;
 }
 function payEdit(no,k,v){ if(PAY&&PAY.lock){ toast('Tháng đã khoá.'); return; } PAYEDIT[no]=Object.assign(PAYEDIT[no]||{},{[k]:k==='ghiChu'?v:parseMoney(v)}); $('#pSave').disabled=false; renderPay(); }
 async function savePayEdits(){ const {ym,pmap}=PAY; const b=db.batch(); let n=0;
@@ -2016,11 +2066,11 @@ function renderCfg(){
   </div>
   <div class="card"><h4>② Cách tính lương</h4>
    ${kv('','Kiểu tính lương',`<select id="cKieu" onchange="cfgToggle()">${Object.keys(KIEU).map(k=>`<option value="${k}" ${(d&&d.kieu||'gio_he')===k?'selected':''}>${KIEU[k]}</option>`).join('')}</select>`)}
-   ${kv('cfg-diem','Cách tính điểm',`<select id="cCachDiem" onchange="cfgToggle()">${[['cachuan','Ca chuẩn + tăng ca bù giờ (vào trễ phải bù đủ ca chuẩn mới có TC)'],['khongbu','Ca chuẩn + tăng ca không bù (vào trễ trừ điểm, TC = giờ sau hết ca)'],['khungTT','Khung giờ tổ trưởng = đủ điểm, không tăng ca, cơm theo mốc giờ'],['ca10','Ca N giờ tính từ giờ vào tổ trưởng = đủ điểm, phần dư là tăng ca (không bù)'],['comat','Có mặt = đủ công (tổ chấm X): ngày có quét sau 10:00 hoặc ≥2 lượt = đủ điểm; không chốt giờ, không trừ trễ/sớm']].map(([k,lb])=>`<option value="${k}" ${cachDiemOf(id)===k?'selected':''}>${lb}</option>`).join('')}</select>`)}
+   ${kv('cfg-diem','Cách tính điểm',`<select id="cCachDiem" onchange="cfgToggle()">${[['DÙNG TỪ THÁNG 10',[['giolam','Theo giờ làm — tăng ca bù giờ (Chế biến, IQF, Bao gói, Xếp hộp)'],['khungTT','Khung giờ tổ trưởng = đủ điểm, không tăng ca (Tiếp nhận, ca 24h)'],['comat','Có mặt = đủ công — tổ chấm X (Ngâm quay ca 12h)']]],['KIỂU CŨ — chỉ để giữ số tháng 9',[['cachuan','Kiểu cũ: ca chuẩn, tăng ca bù giờ'],['khongbu','Kiểu cũ: ca chuẩn, tăng ca không bù'],['ca10','Kiểu cũ: tính từ giờ vào tổ trưởng, tăng ca không bù']]]].map(([g,ops],gi)=>`<optgroup label="${g}">${ops.map(([k,lb])=>`<option value="${k}" ${gi?'style="color:#8A94A3"':''} ${cachDiemOf(id)===k?'selected':''}>${lb}</option>`).join('')}</optgroup>`).join('')}</select>`)}
    <div class="small cfgNote" id="cfgNote" style="padding:0 12px 6px"></div>
    ${kv('cfg-diem','Điểm khi làm đủ ca (10 = 1 công; tổ ca 24h đặt 20 → XX = 2 công)',num('diemDu',70))}
-   ${kv('cfg-ca10','Số giờ ca chuẩn tính từ giờ vào TT (đủ = điểm đủ; vượt = TC)',num('caGioTT',70))}
-   ${kv('cfg-caChuan','Ca chuẩn (vào – hết ca) — đủ ca = điểm đủ, sau hết ca là TC; cũng là giờ điền sẵn',`<span>${tm('caVao',R.caVao||'05:00')} ${tm('caHet',R.caHet||'16:00')}</span>`)}
+   ${kv('cfg-ca10','<span class="lblN">Số giờ ca tính từ giờ vào tổ trưởng (đủ = điểm đủ; vượt = tăng ca, không bù)</span>',num('caGioTT',70))}
+   ${kv('cfg-caChuan','<span class="lblCa">Ca chuẩn (vào – hết ca) — đủ ca = điểm đủ, sau hết ca là TC; cũng là giờ điền sẵn</span>',`<span>${tm('caVao',R.caVao||'05:00')} ${tm('caHet',R.caHet||'16:00')}</span>`)}
    ${kv('cfg-gio','Giờ chuẩn/ngày (trên = tăng ca)',num('gioChuan',70))}
    ${kv('cfg-gio','Có mặt tối thiểu tính 1 công (giờ)',num('toiThieu',70))}
    ${kv('','Xếp loại ABC từ ngày công (A / B / C)',`<span>${num('abcA',56)} ${num('abcB',56)} ${num('abcC',56)}</span>`)}
@@ -2045,7 +2095,7 @@ function renderCfg(){
    ${kv('cfg-comat','Số phần cơm mỗi ngày có mặt (0 = 1 phần)',num('comNgay',56))}
    ${kv('','Bao tay (đ/ngày đi làm, 0 = không)',num('baoTay'))}
    ${kv('cfg-comQT','Cơm theo giờ: 1 phần khi có mặt ≥ · +1 khi TC ≥ · +1 (ca 3) khi TC ≥ (giờ)',`<span>${num('comCoMat',56)} ${num('comTC',56)} ${num('comK3',56)}</span>`)}
-   ${kv('cfg-comQT','+1 phần khi TỔNG giờ làm/ngày ≥ (giờ; 0 = không) · áp dụng từ tháng',`<span>${num('comGio2',56)} <input type="month" data-r2="comGio2Tu" value="${R.comGio2Tu||''}" style="width:140px"></span>`)}
+   ${kv('cfg-comQT','+1 phần khi TỔNG giờ làm/ngày ≥ (giờ; 0 = không)',`<span>${num('comGio2',56)} <input type="month" data-r2="comGio2Tu" value="${R.comGio2Tu||''}" style="display:none"></span>`)}
    ${kv('cfg-khung','Mốc cơm (qua giờ nào +1 phần; trống = không dùng)',`<span>${tm('comMoc1',R.comMoc1)} ${tm('comMoc2',R.comMoc2)} ${tm('comMoc3',R.comMoc3)}</span>`)}
    ${kv('','Chuyên cần 31 công (đ) · 30 công (đ) — tham khảo, hiện nhập tay ở Lương',`<span>${num('chuyenCan31')} ${num('chuyenCan30')}</span>`)}
   </div></div>`;
@@ -2054,11 +2104,11 @@ function renderCfg(){
 }
 /* V1.3.7: ẩn/hiện ô theo kiểu lương và số nhóm */
 function cfgToggle(){ const kv=$('#cKieu')&&$('#cKieu').value; const dm=kv==='thang_tc_gio'||kv==='thang_he'||kv==='muc_ngay'; const mn=kv==='muc_ngay'; const cdv=dm&&$('#cCachDiem')?$('#cCachDiem').value:''; const kt=cdv==='khungTT'; const comat=cdv==='comat'||mn; const sn=$('#cfgBody input[data-r="soNhom"]'); const n=sn?Number(sn.value)||1:1; const dim=(sel,off)=>$$('#cfgBody '+sel).forEach(x=>{ x.classList.toggle('cfgdim',!!off); x.querySelectorAll('input,select').forEach(i=>{ if(i.id!=='cCachDiem') i.disabled=!!off; }); });
-  dim('.cfg-gio',dm); dim('.cfg-diem',!dm); dim('.cfg-ca10',cdv!=='ca10'); dim('.cfg-khung',!kt); dim('.cfg-caChuan',comat); dim('.cfg-line',comat); dim('.cfg-nhom',comat); $$('#cfgBody .cfg-nhom').forEach((x,i)=>x.classList.toggle('hide',n<i+2)); dim('.cfg-tc',mn||kt||comat); dim('.cfg-tche',kv==='muc_ngay'||(kv!=='gio_he'&&(kt||comat))); /* V1.8.7: mọi tổ có tăng ca */ dim('.cfg-comat',!comat); dim('.cfg-comQT',comat||kt);
+  dim('.cfg-gio',dm); dim('.cfg-diem',!dm); dim('.cfg-ca10',cdv!=='ca10'&&cdv!=='giolam'); $$('#cfgBody .lblCa').forEach(x=>x.textContent=cdv==='giolam'?'Ca chuẩn (vào – hết ca) — giờ điền sẵn cho tổ trưởng':'Ca chuẩn (vào – hết ca) — đủ ca = điểm đủ, sau hết ca là TC; cũng là giờ điền sẵn'); $$('#cfgBody .lblN').forEach(x=>x.textContent=cdv==='giolam'?'Số giờ đủ công (làm đủ số giờ này = điểm đủ; thiếu trừ theo tỉ lệ, làm tròn 0,5; vượt = tăng ca)':'Số giờ ca tính từ giờ vào tổ trưởng (đủ = điểm đủ; vượt = tăng ca, không bù)'); /* V1.9.1 */ dim('.cfg-khung',!kt); dim('.cfg-caChuan',comat); dim('.cfg-line',comat); dim('.cfg-nhom',comat); $$('#cfgBody .cfg-nhom').forEach((x,i)=>x.classList.toggle('hide',n<i+2)); dim('.cfg-tc',mn||kt||comat); dim('.cfg-tche',kv==='muc_ngay'||(kv!=='gio_he'&&(kt||comat))); /* V1.8.7: mọi tổ có tăng ca */ dim('.cfg-comat',!comat); dim('.cfg-comQT',comat||kt);
   if($('#cCachDiem')) $('#cCachDiem').disabled=!dm||mn; if(mn&&$('#cCachDiem')) $('#cCachDiem').value='comat';
-  const note=$('#cfgNote'); if(note) note.textContent=mn?'Tiền = Σ điểm/10 × mức tiền ngày × hệ số · không tăng ca · mức tiền ngày nhập ở tab Lương · ngày có quét sau 10:00 hoặc ≥2 lượt = 10 điểm.':comat?'Ngày có quét sau 10:00 hoặc ≥2 lượt = đủ điểm (tổ chấm X); XC/P tổ trưởng đánh; không chốt giờ, không trừ trễ/sớm, không TC.':kv==='thang_he'?'Tiền = lương CB ÷ 30 × ngày công × hệ; TC = giờ × đơn giá TC × hệ.':dm?'Tiền = lương HĐ ÷ 30 × ngày công; TC = giờ TC × đơn giá TC.':'Tiền = giờ làm × đơn giá giờ × hệ; TC = giờ vượt giờ chuẩn × đơn giá TC × hệ.';
+  const note=$('#cfgNote'); if(note) note.textContent=mn?'Tiền = Σ điểm/10 × mức tiền ngày × hệ số · không tăng ca · mức tiền ngày nhập ở tab Lương · ngày có quét sau 10:00 hoặc ≥2 lượt = 10 điểm.':comat?'Ngày có quét sau 10:00 hoặc ≥2 lượt = đủ điểm (tổ chấm X); XC/P tổ trưởng đánh; không chốt giờ, không trừ trễ/sớm, không TC.':kv==='thang_he'?'Tiền = lương CB ÷ 30 × ngày công × hệ; TC = giờ × đơn giá TC × hệ.':(dm&&cdv==='giolam')?'Tiền = lương '+(kv==='thang_he'?'CB':'HĐ')+' ÷ 30 × ngày công'+(kv==='thang_he'?' × hệ':'')+' · Điểm = giờ làm ÷ '+(Number(($('#cfgBody input[data-r="caGioTT"]')||{}).value)||10)+' × điểm đủ (làm tròn 0,5) · TC = giờ vượt (bù giờ).':dm?'Tiền = lương HĐ ÷ 30 × ngày công; TC = giờ TC × đơn giá TC.':'Tiền = giờ làm × đơn giá giờ × hệ; TC = giờ vượt giờ chuẩn × đơn giá TC × hệ.';
   if(sn&&!sn.dataset.bound){ sn.dataset.bound='1'; sn.addEventListener('input',cfgToggle); } }
-function newDept(){ const id=prompt('Mã bộ phận (không dấu, vd: xep-hop, cap-dong, bc-son):'); if(!id) return; const k=slug(id).toLowerCase(); if(DEPTS[k]){ toast('Đã có mã này'); return; } DEPTS[k]={ten:id,congTy:'Châu Bá Thảo',kieu:'gio_he',rules:{},thuTu:Object.keys(DEPTS).length+1}; fillDeptSelects(); $('#cDept').value=k; renderCfg(); toast('Sửa tên/đơn giá rồi bấm Lưu bộ phận'); }
+function newDept(){ const id=prompt('Mã bộ phận (không dấu, vd: xep-hop, cap-dong, bc-son):'); if(!id) return; const k=slug(id).toLowerCase(); if(DEPTS[k]){ toast('Đã có mã này'); return; } NEWDEPTS.add(k); DEPTS[k]={ten:id,congTy:'Châu Bá Thảo',kieu:'gio_he',rules:{},thuTu:Object.keys(DEPTS).length+1}; fillDeptSelects(); $('#cDept').value=k; renderCfg(); toast('Sửa tên/đơn giá rồi bấm Lưu bộ phận'); }
 /* V1.4.3: gộp tổ nguồn vào tổ đích — chuyển người, sao chép giờ TT/ghi chú ngày đích chưa có, tài khoản tổ trưởng, tên Hik; rồi xoá tổ nguồn */
 function mergeDept(){ const src=$('#cDept').value; if(!src||!DEPTS[src]) return; const n=Object.values(EMPS).filter(e=>e.boPhan===src).length;
   openModal(`<h3>Gộp "${esc(DEPTS[src].ten)}" vào tổ khác</h3><div class="sub">${n} nhân viên sẽ chuyển sang tổ đích; giờ tổ trưởng/ghi chú các ngày tổ đích chưa có sẽ được mang theo; tài khoản tổ trưởng đang xem tổ này chuyển sang tổ đích; tên "${esc(DEPTS[src].ten)}" ghi vào "Tên trên Hik" của tổ đích. Sau đó tổ nguồn bị xoá.</div>
@@ -2086,7 +2136,13 @@ async function delDept(){ const id=$('#cDept').value; if(!id||!DEPTS[id]) return
   delete DEPTS[id]; saveBaseCache(true); fillDeptSelects(); renderCfg(); toast('Đã xoá bộ phận'); }
 async function saveDept(){ const id=$('#cDept').value; if(!id) return; const rules={}; $$('#cfgBody input[data-r]').forEach(i=>{ rules[i.dataset.r]=MONEY_KEYS.has(i.dataset.r)?parseMoney(i.value):(Number(String(i.value).replace(',','.').replace(/[^\d.]/g,''))||0); }); $$('#cfgBody input[data-r2]').forEach(i=>{ rules[i.dataset.r2]=i.value; });
   const d={ten:$('#cTen').value.trim()||id,tenHik:$('#cTenHik').value.trim(),congTy:$('#cCty').value.trim(),thuTu:Number($('#cThuTu').value)||0,kieu:$('#cKieu').value,tuCham:$('#cTuCham').checked||$('#cGioCoDinh').checked||$('#cTuChotMay').checked||$('#cTuNhom').checked,gioCoDinh:$('#cGioCoDinh').checked,tuChotMay:$('#cTuChotMay').checked,tuNhom:$('#cTuNhom').checked,cachDiem:$('#cCachDiem').value,tcKhongBu:$('#cCachDiem').value==='khongbu',ca24:$('#cCa24').checked,tcHe:!!($('#cTcHe')&&$('#cTcHe').checked),rules,updatedAt:TS.now(),updatedBy:ME.username};
-  try{ await db.collection('departments').doc(id).set(d,{merge:true}); }catch(e){ toast(errMsg(e),8000); return; } DEPTS[id]=Object.assign(DEPTS[id]||{},d); saveBaseCache(true); fillDeptSelects(); $('#cDept').value=id; Object.keys(EVCACHE).forEach(k=>delete EVCACHE[k]); toast('Đã lưu bộ phận '+d.ten); }
+  /* V1.9.0: phần tính công/lương lưu theo tháng đang chọn; tên, công ty, thứ tự, tên Hik dùng chung mọi tháng */
+  const M=cfgMonth(); const mon={}; CFG_MKEYS.forEach(k=>{ if(d[k]!==undefined) mon[k]=d[k]; }); const top={ten:d.ten,tenHik:d.tenHik,congTy:d.congTy,thuTu:d.thuTu,updatedAt:d.updatedAt,updatedBy:d.updatedBy};
+  const moi=NEWDEPTS.has(id); /* bộ phận mới tạo: ghi luôn cấu hình gốc (link bản cũ vẫn đọc được) */
+  const w=Object.assign({},top,{thang:{[M]:mon}},moi?mon:{});
+  try{ await db.collection('departments').doc(id).set(w,{merge:true}); }catch(e){ toast(errMsg(e),8000); return; } NEWDEPTS.delete(id);
+  const cur=DEPTS[id]||(DEPTS[id]={}); deptBase(cur); Object.assign(cur,top); if(moi){ CFG_MKEYS.forEach(k=>{ if(mon[k]!==undefined) cur.__base[k]=cfgClone(mon[k]); }); } cur.thang=cur.thang||{}; cur.thang[M]=Object.assign({},cur.thang[M]||{},cfgClone(mon)); cur.__applied=null; applyCfgMonth(M);
+  saveBaseCache(true); fillDeptSelects(); $('#cDept').value=id; Object.keys(EVCACHE).forEach(k=>delete EVCACHE[k]); toast('Đã lưu bộ phận '+d.ten+' · tháng '+M.slice(5)+'/'+M.slice(0,4)); }
 async function renderUsers(){ const q=await db.collection('users').get(); const box=$('#usersBox'); if(!box) return;
   box.innerHTML='<table><tr><th>Đăng nhập</th><th class="l">Họ tên</th><th>Vai trò</th><th class="l">Bộ phận (tổ trưởng)</th><th class="l">Tab</th><th>Hoạt động</th><th></th></tr>'+q.docs.map(x=>{const u=x.data(); return `<tr><td>${esc(x.id)}</td><td class="l">${esc(u.name)}</td><td>${{admin:'Quản trị',ketoan:'Kế toán',totruong:'Tổ trưởng'}[u.role]||u.role}</td><td class="l">${(u.depts||[]).map(d=>DEPTS[d]?esc(DEPTS[d].ten):d).join(', ')}</td><td class="l small">${((u.tabs&&u.tabs.length)?u.tabs:ROLE_TABS[u.role]||[]).map(k=>(TAB_LIST.find(t=>t[0]===k)||[k,k])[1]).join(', ')}</td><td>${u.active===false?'Khoá':'✓'}</td><td><button class="btn sm" onclick="editUser('${esc(x.id)}')">Sửa</button></td></tr>`;}).join('')+'</table>'; }
 async function editUser(id){ const u=id?(await db.collection('users').doc(id).get()).data():{role:'totruong',depts:[],active:true};
@@ -2100,4 +2156,19 @@ async function editUser(id){ const u=id?(await db.collection('users').doc(id).ge
 async function saveUser(id){ const nid=(id||$('#uId').value).trim().toLowerCase(); const name=$('#uName').value.trim(), p=$('#uPass').value; if(!nid||!name){ toast('Thiếu tên đăng nhập / họ tên'); return; } if(!id&&p.length<4){ toast('Mật khẩu ≥4 ký tự'); return; }
   const u={name,role:$('#uRole').value,depts:$$('.uDept:checked').map(c=>c.value),tabs:$$('.uTab:checked').map(c=>c.value),active:$('#uActive').checked,updatedAt:TS.now(),updatedBy:ME.username}; if(p) u.passHash=await sha256(p); if(!id) u.createdAt=TS.now();
   try{ await db.collection('users').doc(nid).set(u,{merge:true}); }catch(e){ toast(errMsg(e),8000); return; } closeModal(); toast('Đã lưu tài khoản'); renderUsers(); }
+
+/* V1.9.0: mỗi màn hình tự nạp cấu hình đúng tháng của nó trước khi chạy */
+(function(){ const W=(names,get)=>names.forEach(n=>{ const f=window[n]; if(typeof f!=='function'){ console.warn('cfgwrap: thiếu hàm',n); return; } window[n]=function(...a){ try{ const ym=get(a); if(ym) applyCfgMonth(ym); }catch(e){} return f.apply(this,a); }; });
+  const pay=()=>PAY&&PAY.ym, mon=()=>MONTHCTX&&MONTHCTX.ym, cham=()=>CHAMCTX&&CHAMCTX.date, arg1=a=>a[1];
+  W(['renderPay','renderPayGon','renderPayFull','renderPayDiem','renderPayRowsOnly','payColSpec','payRowsData','printPay','exportPayMau','exportPay','exportPayGonOld','savePayEdits','lockMonth','fillCC','slBar','slEdit'],pay);
+  W(['renderMonth','renderMonthLam','renderMonthTC','renderMonthCom','exportMonth','setHe'],mon);
+  W(['renderCham','saveLine','closeDay','showChamWarn','bulkCham','bulkChamDo','bulkNhom','chamPreview','readChamForm','selMode'],cham);
+  W(['openCham','saveCham','delCham','openAdj','saveAdj','buildLockSnap','unlockMonth'],arg1);
+  W(['renderToday'],()=>$('#dDate')&&$('#dDate').value);
+  W(['renderBC','bcDetail','exportBC','snapBC'],()=>(BC&&BC.date)||($('#bDate')&&$('#bDate').value));
+  W(['renderDetail','exportDetail'],()=>DETAIL&&DETAIL.to);
+  W(['renderTong','printTong','exportTong','saveTong','lockAllTong'],()=>TONG&&TONG.ym);
+  W(['renderCfg','saveDept'],()=>cfgMonth());
+  W(['showTab'],a=>({pay:pay(),month:mon(),cham:$('#cDate')&&$('#cDate').value,today:$('#dDate')&&$('#dDate').value,bc:$('#bDate')&&$('#bDate').value,detail:DETAIL&&DETAIL.to,tong:TONG&&TONG.ym,cfg:cfgMonth()})[a[0]]);
+})();
 </script></body></html>
