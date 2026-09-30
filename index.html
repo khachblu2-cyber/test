@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.8.7
+ Phiên bản : V1.8.8
  Ngày      : 27/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.8.8 – Tab Nhân viên: ẩn 4 cột Hệ, Lương tháng, Email, Điện thoại (chỉ ẩn hiển thị; dữ liệu giữ;
+            Hệ/Lương sửa ở tab Lương; Xuất Excel, Nhập Excel, Nhập lương/hệ giữ nguyên).
    V1.8.7 – Hệ TC: có điền → TC × Hệ TC; để trống → TC × hệ cũ (CB × hệ, giờ × hệ: cột Hệ; lương HĐ: 1).
             Thanh gạt mở cho cả tổ CB × hệ và giờ × hệ (mờ ở khung TT, có mặt, mức ngày). Hệ TC không
             cho ẩn. Sửa lỗi Excel: cột Hệ/Hệ TC luôn xuất kể cả khi đang ẩn → công thức không mất hệ.
@@ -454,7 +456,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.8.7</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.8.8</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -1873,16 +1875,13 @@ function renderEmp(){
   const unassigned=Object.values(EMPS).filter(e=>!e.boPhan&&e.active!==false).length;
   $('#eNote').innerHTML=unassigned?`<b>${unassigned} nhân viên chưa gán tổ</b> — chưa được tính công. Tick chọn rồi bấm "Chuyển bộ phận".`:'Tất cả nhân viên đã gán tổ.';
   const dopt=id=>'<option value="">— chưa gán —</option>'+Object.keys(DEPTS).map(d=>`<option value="${d}" ${id===d?'selected':''}>${esc(DEPTS[d].ten)}</option>`).join('');
-  $('#eTbl').innerHTML=`<table><tr><th><input type="checkbox" onchange="$$('#eTbl .esel').forEach(c=>{c.checked=this.checked;c.onchange()})"></th><th>STT</th><th>Mã máy</th><th class="l">Họ tên</th><th>Tổ / bộ phận</th><th>Công ty</th><th>Hệ</th><th>Chức vụ</th><th>Lương tháng</th><th>BH/tháng</th><th>Không<br>bao tay</th><th>Email</th><th>Điện thoại</th><th>Quét gần nhất</th><th>Đang làm</th></tr>`+
+  $('#eTbl').innerHTML=`<table><tr><th><input type="checkbox" onchange="$$('#eTbl .esel').forEach(c=>{c.checked=this.checked;c.onchange()})"></th><th>STT</th><th>Mã máy</th><th class="l">Họ tên</th><th>Tổ / bộ phận</th><th>Công ty</th><th>Chức vụ</th><th>BH/tháng</th><th>Không<br>bao tay</th><th>Quét gần nhất</th><th>Đang làm</th></tr>`+
    list.map((e,i)=>`<tr><td><input type="checkbox" class="esel" data-no="${esc(e.employeeNo)}" ${eSel.has(e.employeeNo)?'checked':''} onchange="this.checked?eSel.add(this.dataset.no):eSel.delete(this.dataset.no)"></td><td>${i+1}</td><td>${esc(e.employeeNo)}</td><td class="l">${esc(e.name)}</td>
     <td><select class="chip" onchange="openTransfer(['${esc(e.employeeNo)}'],this.value);this.value='${esc(e.boPhan||'')}'">${dopt(e.boPhan)}</select>${Array.isArray(e.deptHist)&&e.deptHist.some(x=>x.from>vnDate(Date.now()))?`<div class="small" style="color:var(--pink)">→ ${esc((DEPTS[e.deptHist[e.deptHist.length-1].dept]||{}).ten||'')} từ ${e.deptHist[e.deptHist.length-1].from.slice(8,10)}/${e.deptHist[e.deptHist.length-1].from.slice(5,7)}</div>`:''}</td>
     <td><input class="chip" style="width:110px" value="${esc(e.congTy||'')}" onchange="empSet('${esc(e.employeeNo)}','congTy',this.value)"></td>
-    <td><input class="chip" style="width:64px;text-align:right" value="${e.he||1}" onchange="empSet('${esc(e.employeeNo)}','he',Number(this.value)||1)"></td>
     <td><input class="chip" style="width:100px" value="${esc(e.chucVu||'')}" onchange="empSet('${esc(e.employeeNo)}','chucVu',this.value)"></td>
-    <td><input class="chip" style="width:100px;text-align:right" value="${fmtN(e.luongThang||0)}" inputmode="numeric" onchange="fmtMoneyInput(this);empSet('${esc(e.employeeNo)}','luongThang',parseMoney(this.value))"></td>
     <td><input class="chip" style="width:90px;text-align:right" value="${fmtN(e.baoHiem||0)}" inputmode="numeric" onchange="fmtMoneyInput(this);empSet('${esc(e.employeeNo)}','baoHiem',parseMoney(this.value))"></td>
     <td class="c"><input type="checkbox" ${e.khongBaoTay?'checked':''} onchange="empSet('${esc(e.employeeNo)}','khongBaoTay',this.checked)" title="Không tính tiền bao tay"></td>
-    <td><input class="chip" style="width:150px" value="${esc(e.email||'')}" onchange="empSet('${esc(e.employeeNo)}','email',this.value.trim())"></td><td><input class="chip" style="width:110px" value="${esc(e.phone||'')}" onchange="empSet('${esc(e.employeeNo)}','phone',this.value.trim())"></td>
     <td class="small">${tsMs(e.lastSeen)?new Date(tsMs(e.lastSeen)).toLocaleDateString('vi-VN'):''}</td>
     <td><input type="checkbox" ${e.active!==false?'checked':''} onchange="empSet('${esc(e.employeeNo)}','active',this.checked)"></td></tr>`).join('')+`</table><div class="small" style="padding:8px">${list.length} nhân viên</div>`;
 }
