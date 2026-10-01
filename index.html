@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.9.4
+ Phiên bản : V1.9.5
  Ngày      : 27/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.9.5 – Từ ngày 1 đến hết ngày 5 mỗi tháng, tổ trưởng sửa được mọi ngày của THÁNG TRƯỚC (dò lại trước khi
+            kế toán chốt lương); qua ngày 6 tự khoá; tháng hiện tại vẫn khoá sau 24h; Khoá tháng vẫn chặn tất cả.
    V1.9.4 – Sửa bù giờ của "Theo giờ làm": giờ thiếu tính trên TỔNG giờ làm trong khung TT (không riêng
             phần đầu ca) — vào trễ ở lại bù đủ khung TT (tối đa N giờ) = đủ điểm; TC = giờ vượt N. VD IQF N2
             TT 10:00→22:00, vào 11:00 ra 22:00 = 10 điểm + TC 1 (V1.9.3 sai: 9 + TC 1).
@@ -477,7 +479,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.9.4</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.9.5</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -1196,7 +1198,9 @@ function exportTong(){ if(!TONG||typeof ExcelJS==='undefined') return; const {ct
   const rt=8+rows.length; ws.getCell(rt,2).value=''; ws.getCell(rt,3).value='TỔNG CỘNG'; ws.getCell(rt,4).value={formula:`SUM(D8:D${rt-1})`,result:rows.reduce((a,r)=>a+r.tien,0)}; ws.getCell(rt,4).numFmt='#,##0'; for(let c=2;c<=5;c++){ const cell=ws.getCell(rt,c); cell.font=F(11,true); cell.border=box; }
   ws.getColumn(2).width=6; ws.getColumn(3).width=40; ws.getColumn(4).width=18; ws.getColumn(5).width=24;
   wb.xlsx.writeBuffer().then(buf=>{ const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`TongHopLuong-${slug(cty)}-${ym}.xlsx`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); }); }
-function canEditCham(dept,date){ if(isLocked(dept,date)) return false; if(ME.role!=='totruong') return true; return !ttKhoaNgay(dept,date); } /* V1.9.0: tổ trưởng tự khoá sau 24h (bỏ Chốt ngày) */
+function canEditCham(dept,date){ if(isLocked(dept,date)) return false; if(ME.role!=='totruong') return true; if(thangTruocConMo(date)) return true; return !ttKhoaNgay(dept,date); }
+/* V1.9.5: từ ngày 1 đến hết ngày 5, tổ trưởng sửa được mọi ngày của tháng trước (dò lại trước khi kế toán chốt lương); khoá tháng vẫn chặn */
+function thangTruocConMo(date){ const t=todayVN(); if(Number(t.slice(8,10))>5) return false; const [y,m]=t.slice(0,7).split('-').map(Number); const pm=m===1?(y-1)+'-12':y+'-'+pad(m-1); return String(date).slice(0,7)===pm; } /* V1.9.0: tổ trưởng tự khoá sau 24h (bỏ Chốt ngày) */
 function lockAnchorMs(dept,date){ const l=lineOf(dept,date); if(l&&!l.auto&&(l.inTime||l.xc)){ const t=tsMs(l.chotAt)||tsMs(l.at); if(t) return t; }
   if(isTuCham(dept)&&!isTuChot(dept)&&!isCoDinh(dept)&&!isComat(dept)) return null; /* tổ tổ trưởng phải chốt giờ mà chưa chốt → chưa khoá */
   let rows=null; if(CHAMCTX&&CHAMCTX.dept===dept&&CHAMCTX.date===date&&CHAM) rows=CHAM; else if(MONTHCTX&&MONTHCTX.dept===dept&&MONTH) rows=MONTH;
