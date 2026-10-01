@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.9.5
+ Phiên bản : V1.9.6
  Ngày      : 27/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.9.6 – Tab Tháng của tổ trưởng: từ ngày 1–5 chọn được tháng trước để dò (trước chỉ xem tháng hiện tại,
+            nên V1.9.5 mở sửa tháng trước nhưng tab Tháng vẫn chặn).
    V1.9.5 – Từ ngày 1 đến hết ngày 5 mỗi tháng, tổ trưởng sửa được mọi ngày của THÁNG TRƯỚC (dò lại trước khi
             kế toán chốt lương); qua ngày 6 tự khoá; tháng hiện tại vẫn khoá sau 24h; Khoá tháng vẫn chặn tất cả.
    V1.9.4 – Sửa bù giờ của "Theo giờ làm": giờ thiếu tính trên TỔNG giờ làm trong khung TT (không riêng
@@ -479,7 +481,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.9.5</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.9.6</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -1200,6 +1202,9 @@ function exportTong(){ if(!TONG||typeof ExcelJS==='undefined') return; const {ct
   wb.xlsx.writeBuffer().then(buf=>{ const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`TongHopLuong-${slug(cty)}-${ym}.xlsx`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000); }); }
 function canEditCham(dept,date){ if(isLocked(dept,date)) return false; if(ME.role!=='totruong') return true; if(thangTruocConMo(date)) return true; return !ttKhoaNgay(dept,date); }
 /* V1.9.5: từ ngày 1 đến hết ngày 5, tổ trưởng sửa được mọi ngày của tháng trước (dò lại trước khi kế toán chốt lương); khoá tháng vẫn chặn */
+/* V1.9.6: tổ trưởng xem tab Tháng: tháng hiện tại; từ ngày 1–5 xem thêm tháng trước */
+const TT_THANG_MSG='Tổ trưởng xem tháng hiện tại; tháng trước xem và sửa được đến hết ngày 5.';
+function ttXemThang(ym){ return ym===todayVN().slice(0,7)||thangTruocConMo(ym+'-01'); }
 function thangTruocConMo(date){ const t=todayVN(); if(Number(t.slice(8,10))>5) return false; const [y,m]=t.slice(0,7).split('-').map(Number); const pm=m===1?(y-1)+'-12':y+'-'+pad(m-1); return String(date).slice(0,7)===pm; } /* V1.9.0: tổ trưởng tự khoá sau 24h (bỏ Chốt ngày) */
 function lockAnchorMs(dept,date){ const l=lineOf(dept,date); if(l&&!l.auto&&(l.inTime||l.xc)){ const t=tsMs(l.chotAt)||tsMs(l.at); if(t) return t; }
   if(isTuCham(dept)&&!isTuChot(dept)&&!isCoDinh(dept)&&!isComat(dept)) return null; /* tổ tổ trưởng phải chốt giờ mà chưa chốt → chưa khoá */
@@ -1489,7 +1494,7 @@ async function delAdj(no,date){ if(!confirm('Xoá điều chỉnh này, quay v�
 function reloadAfterAdj(){ if(!$('#tab-today').classList.contains('hide')) loadToday(); if(!$('#tab-month').classList.contains('hide')) loadMonth(); }
 /* ===================== THÁNG ===================== */
 let MONTH=null, MONTHCTX=null;
-function shiftMonth(n){ if(ME.role==='totruong'){ toast('Tổ trưởng chỉ xem tháng hiện tại.'); return; } const [y,m]=$('#mMonth').value.split('-').map(Number); const d=new Date(Date.UTC(y,m-1+n,1)); $('#mMonth').value=d.toISOString().slice(0,7); loadMonth(); }
+function shiftMonth(n){ const [y,m]=$('#mMonth').value.split('-').map(Number); const d=new Date(Date.UTC(y,m-1+n,1)); if(ME.role==='totruong'&&!ttXemThang(d.toISOString().slice(0,7))){ toast(TT_THANG_MSG); return; } $('#mMonth').value=d.toISOString().slice(0,7); loadMonth(); }
 /* ===== V1.4.5: TAB CHI TIẾT QUÉT ===== */
 let DETAIL=null;
 function fillDetailDept(){ const sel=$('#dtDept'); if(!sel) return; const v=sel.value; const ids=myDepts(); sel.innerHTML=ids.map(id=>`<option value="${id}">${esc(DEPTS[id].ten)}</option>`).join('')+(ME.role!=='totruong'?'<option value="__all">Tất cả tổ (chỉ khi tìm 1 người)</option>':''); if(v&&[...sel.options].some(o=>o.value===v)) sel.value=v; }
@@ -1534,7 +1539,7 @@ function exportDetail(){ if(!DETAIL){ toast('Bấm Xem trước.'); return; } if
   const ws=XLSX.utils.aoa_to_sheet([[`CHI TIẾT QUÉT ${fmtDateVN(from)} → ${fmtDateVN(to)} · ${dept==='__all'?'Tất cả tổ':DEPTS[dept].ten}`],[],['Ngày','Họ tên','Tổ','Các lượt quét','Vào','Ra','Giờ máy','Chấm'],...data]); ws['!cols']=[{wch:12},{wch:24},{wch:18},{wch:60},{wch:8},{wch:12},{wch:9},{wch:36}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Chi tiết'); XLSX.writeFile(wb,`ChiTietQuet_${from}_${to}.xlsx`); }
 async function loadMonth(force){ syncFrom($('#mDept')&&$('#mDept').value,$('#mMonth')&&$('#mMonth').value);
-  if(ME.role==='totruong'&&$('#mMonth').value!==todayVN().slice(0,7)){ $('#mMonth').value=todayVN().slice(0,7); toast('Tổ trưởng chỉ xem tháng hiện tại.'); }
+  if(ME.role==='totruong'&&!ttXemThang($('#mMonth').value)){ $('#mMonth').value=todayVN().slice(0,7); toast(TT_THANG_MSG); }
   const dept=$('#mDept').value, ym=$('#mMonth').value; if(!dept||!ym) return;
   const from=ym+'-01', to=ym+'-'+pad(monthDays(ym));
   loadBox('#mTbl','Đang tải dữ liệu tháng… (tổ đông có thể mất 5–10 giây)'); await loadLock(dept,ym);
