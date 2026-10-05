@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.9.9
+ Phiên bản : V1.10.0
  Ngày      : 27/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.10.0 – Sửa lỗi: tab Chấm công không hiện tổ chỉ bật "Hiện ở tab Chấm công" trong cấu hình tháng mới (cấu hình gốc
+            tắt) sau khi mở lại app. Danh sách tổ giờ lọc theo cấu hình của tháng ngày đang chọn, đổi tháng tự cập nhật.
    V1.9.9 – Lương: cột "CÔNG ABC" (công thực tế + XC, kèm A/B/C, ghi "28 + XC 2"), mặc định hiện mọi tổ, ẩn/hiện ở
             ☷ Cột; lọc "Từ … đến …" theo Công ABC (cả tháng đã khoá) để điền chuyên cần. Ngày công / tiền lương / bao
             tay giữ theo công thực tế. Tháng → Cơm hiện số lẻ dấu phẩy (1,5). Bản khoá lưu thêm congXep.
@@ -492,7 +494,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.9.9</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.10.0</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -1135,11 +1137,14 @@ async function loadLines(deptId, from, to){
 function lineOf(deptId,date){ const l=LINES[deptId+'_'+date]; return (l&&(l.inTime||l.xc))?l:null; } /* V1.4.1: doc chỉ có ghi chú/closed không tính là đã chốt */
 function bcNoteOf(deptId,date){ const l=LINES[deptId+'_'+date]; return (l&&l.bcNote)||''; }
 async function saveBCNote(deptId,date,val){ val=String(val||'').trim(); try{ await db.collection('lines').doc(deptId+'_'+date).set({deptId,date,bcNote:val,bcNoteBy:ME.name,bcNoteAt:TS.now()},{merge:true}); LINES[deptId+'_'+date]=Object.assign({},LINES[deptId+'_'+date]||{},{deptId,date,bcNote:val}); const r=BC&&BC.rows.find(x=>x.dept===deptId); if(r) r.note=val; toast('Đã lưu ghi chú'); }catch(e){ toast('Lưu ghi chú thất bại: '+errMsg(e),6000); } }
-function fillChamDeptSel(){ const ids=myDepts().filter(isTuCham); const sel=$('#cDeptSel'); const v=sel.value; sel.innerHTML=ids.map(id=>`<option value="${id}">${esc(DEPTS[id].ten)}</option>`).join('')||'<option value="">(chưa bật tổ nào)</option>'; if(v&&ids.includes(v)) sel.value=v; }
+/* V1.10.0: danh sách tổ tab Chấm công lọc theo cấu hình THÁNG của ngày đang chọn */
+var CHAMSEL_YM='';
+function tuChamAt(id,ym){ const d=DEPTS[id]; if(!d) return false; const k=cfgKeyOf(d,ym); const src=k?Object.assign({},deptBase(d),d.thang[k]):deptBase(d); return !!(src.tuCham||src.gioCoDinh); }
+function fillChamDeptSel(){ const ym=(($('#cDate')&&$('#cDate').value)||todayVN()).slice(0,7); CHAMSEL_YM=ym; const ids=myDepts().filter(id=>tuChamAt(id,ym)); const sel=$('#cDeptSel'); const v=sel.value; sel.innerHTML=ids.map(id=>`<option value="${id}">${esc(DEPTS[id].ten)}</option>`).join('')||'<option value="">(chưa bật tổ nào)</option>'; if(v&&ids.includes(v)) sel.value=v; }
 function shiftChamDay(n){ $('#cDate').value=addDays($('#cDate').value,n); loadCham(); }
 let CHAM=null, CHAMCTX=null;
 function clearEvCache(){ try{ Object.keys(localStorage).filter(k=>k.startsWith('cc_ev_')).forEach(k=>localStorage.removeItem(k)); }catch(e){} }
-async function loadCham(force){ CFILTER=null; if(force){ clearEvCache(); try{ await loadBase(true); fillDeptSelects(); }catch(e){ toast(errMsg(e),6000); } } /* V1.4.2: Làm mới xoá cache sự kiện */ syncFrom($('#cDeptSel')&&$('#cDeptSel').value,($('#cDate')&&$('#cDate').value||'').slice(0,7));
+async function loadCham(force){ CFILTER=null; if(force){ clearEvCache(); try{ await loadBase(true); fillDeptSelects(); }catch(e){ toast(errMsg(e),6000); } } if((($('#cDate')&&$('#cDate').value)||todayVN()).slice(0,7)!==CHAMSEL_YM) fillChamDeptSel(); /* V1.10.0 */ /* V1.4.2: Làm mới xoá cache sự kiện */ syncFrom($('#cDeptSel')&&$('#cDeptSel').value,($('#cDate')&&$('#cDate').value||'').slice(0,7));
   const dept=$('#cDeptSel').value, date=$('#cDate').value;
   if(!dept){ $('#cLine').innerHTML='<div class="note info">Chưa có bộ phận nào bật "Tổ trưởng tự chấm". Vào Cấu hình → tick "Tổ trưởng tự chấm (theo giờ tổ trưởng)" cho bộ phận cần dùng.</div>'; $('#cList').innerHTML=''; $('#cStat').innerHTML=''; $('#cFoot').innerHTML=''; return; }
   const emps=deptEmps(dept,date,date); const nos=emps.map(e=>String(e.employeeNo)); $('#cCount').textContent=nos.length+' NV';
