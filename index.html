@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.10.0
+ Phiên bản : V1.10.1
  Ngày      : 27/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,9 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.10.1 – (1) Tab Lương mở cho kiểu "Mức tiền ngày × hệ số" (TNNL Đăng) — bỏ dòng chặn cũ từ V1; tên cột "Σ điểm".
+            (2) Hộp sửa từng người khi ngày chưa có giờ tổ trưởng: tổ "Có mặt" chọn Theo máy / X / XC / P (xử lý ô "?");
+            tổ chốt giờ chọn XC / P cho riêng người. Vẫn tính giới hạn số lần tổ trưởng sửa, khoá 24h, khoá tháng.
    V1.10.0 – Sửa lỗi: tab Chấm công không hiện tổ chỉ bật "Hiện ở tab Chấm công" trong cấu hình tháng mới (cấu hình gốc
             tắt) sau khi mở lại app. Danh sách tổ giờ lọc theo cấu hình của tháng ngày đang chọn, đổi tháng tự cập nhật.
    V1.9.9 – Lương: cột "CÔNG ABC" (công thực tế + XC, kèm A/B/C, ghi "28 + XC 2"), mặc định hiện mọi tổ, ẩn/hiện ở
@@ -494,7 +497,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.10.0</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.10.1</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -1372,9 +1375,7 @@ function openCham(no,date){
   // (6) lấy đúng nguồn theo ngày: tab Chấm công nếu đang ở ngày này, ngược lại tab Tháng
   const src=(CHAMCTX&&CHAMCTX.date===date&&CHAM&&CHAM[no])?CHAM[no]:(MONTH&&MONTH[no]&&MONTH[no].days[date]?MONTH[no]:null);
   const base=src?src.days[date]:null; if(!base) return;
-  if(!line){ // (5) ngày chưa chốt giờ tổ trưởng
-    const s0=base.session; const mayS=s0?`Vào ${vnTime(s0.inMs)} → ${s0.outMs?'Ra '+vnTime(s0.outMs)+(vnDate(s0.outMs)!==date?' '+dLbl(s0.outMs):''):'<span style="color:var(--rust)">không có quét ra</span>'}${base.mh!=null?' · máy <b>'+fmtH(base.mh)+'h</b>':''}`:'Không có quét';
-    openModal(`<h3>${esc(e.name)}</h3><div class="sub">${fmtDateVN(date)} · ${esc(DEPTS[dept].ten)}</div><div class="fld"><label>Máy quét</label><div class="ro">${mayS}</div></div><div class="note" style="margin:0 0 10px">Ngày này tổ trưởng <b>chưa chốt giờ</b> nên chưa tính công. Chốt giờ tổ trưởng trước rồi mới sửa từng người.</div><div class="btnrow"><button class="btn" onclick="closeModal()">Đóng</button><button class="btn p" onclick="closeModal();gotoCham('${dept}','${date}')">Chốt giờ ngày này →</button></div>`); return; }
+  if(!line) return openNoLine(no,date,e,dept,base); /* V1.10.1: ngày chưa có giờ tổ trưởng vẫn chọn được X / XC / P */
   line=lineVariant(line,base.nhom||0); const s=base.session, a=base.adj||{}; const dm=isDiem(dept); const L=lineB(dept,line,R); const FN=dayFn(dept); const U=dm?' điểm':'h'; const fullV=dm?(R.diemDu||10):L.hours; const edit=canEditCham(dept,date);
   const mayS=s?`Vào ${vnTime(s.inMs)}${s.inMac?' ('+esc(devName(s.inMac))+')':''} → ${s.outMs?'Ra '+vnTime(s.outMs)+(vnDate(s.outMs)!==date?' '+dLbl(s.outMs):''):'<span style="color:var(--rust)">không có quét ra</span>'}${base.mh!=null?` · trong ca: <b>${fmtH(base.mh)}h</b>`:''}`:'Không có quét';
   const dflt=FN(s,line,null,R); const fmtV=d=>dm?`${fmtH(d.diem)} điểm${d.tc?' +TC '+fmtH(d.tc):''}`:fmtH(d.gio)+'h';
@@ -1411,6 +1412,23 @@ async function saveCham(no,date){
   toast('Đã lưu'); closeModal(); reloadAfterCham();
 }
 async function delCham(no,date,silent){ if(!silent&&!confirm('Bỏ điều chỉnh, quay về tính theo máy?')) return; const ref=db.collection('adjustments').doc(no+'_'+date); try{ await ref.collection('log').add({by:ME.name,byUser:ME.username,at:TS.now(),deleted:true}); await ref.delete(); }catch(e){ toast(errMsg(e),8000); return; } toast('Đã về mặc định'); closeModal(); reloadAfterCham(); }
+/* V1.10.1: hộp sửa khi ngày chưa có giờ tổ trưởng (tổ "Có mặt" không bao giờ chốt giờ) */
+function openNoLine(no,date,e,dept,base){ const cm=isComat(dept); const a=ADJ[no+'_'+date]||null; const cur=a&&a.mode?a.mode:'auto'; const edit=canEditCham(dept,date);
+  const s0=base.session; const mayS=s0?`Vào ${vnTime(s0.inMs)} → ${s0.outMs?'Ra '+vnTime(s0.outMs)+(vnDate(s0.outMs)!==date?' '+dLbl(s0.outMs):''):'<span style="color:var(--rust)">chỉ 1 lượt quét</span>'}`:'Không có quét';
+  const opts=cm?[['auto','Theo máy (mặc định: quét sau 10:00 hoặc ≥2 lượt = X)',''],['comat','X — có mặt, đủ công (máy không nhận / chỉ 1 lượt sáng)','X'],['xcRieng','XC — xả ca (tính công xét ABC, không lương)','XC'],['P','P — nghỉ phép (không lương, không công)','P']]
+               :[['auto','Không điều chỉnh (chờ tổ trưởng chốt giờ)',''],['xcRieng','XC — xả ca riêng người này','XC'],['P','P — nghỉ phép (không lương, không công)','P']];
+  const sel=opts.some(o=>o[0]===cur)?cur:'auto';
+  openModal(`<h3>${esc(e.name)}</h3><div class="sub">${fmtDateVN(date)} · ${esc(DEPTS[dept].ten)}</div><div class="fld"><label>Máy quét</label><div class="ro">${mayS}</div></div>
+   ${cm?'':`<div class="note" style="margin:0 0 6px">Ngày này tổ trưởng <b>chưa chốt giờ</b> nên chưa tính công theo giờ. Vẫn chọn được XC / P cho riêng người này.</div>`}
+   ${opts.map(([k,lb,v])=>`<label class="mopt${k===sel?' on':''}" style="display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px;cursor:pointer"><input type="radio" name="nlMode" value="${k}" ${k===sel?'checked':''} ${edit?'':'disabled'} onchange="$$('.mopt').forEach(x=>x.classList.toggle('on',x.contains(this)))"><span style="flex:1">${lb}</span><b>${v}</b></label>`).join('')}
+   <div class="fld" style="margin-top:10px"><label>Ghi chú (không bắt buộc)</label><input id="nlNote" class="chip" style="width:100%" value="${esc(a&&a.note||'')}" ${edit?'':'disabled'}></div>
+   ${edit?'':'<div class="note info" style="margin:8px 0 0">Ngày này đã khoá — chỉ xem.</div>'}
+   <div class="btnrow"><button class="btn" onclick="closeModal()">${edit?'Hủy':'Đóng'}</button>${cm?'':`<button class="btn" onclick="closeModal();gotoCham('${dept}','${date}')">Chốt giờ ngày này →</button>`}${edit?`<button class="btn p" onclick="saveNoLine('${no}','${date}')">Lưu</button>`:''}</div>`); }
+async function saveNoLine(no,date){ const dept=EMPS[no]&&EMPS[no].boPhan; if(!canEditCham(dept,date)){ toast('Ngày này đã khoá.'); return; } const el=document.querySelector('input[name="nlMode"]:checked'); const m=el?el.value:'auto';
+  if(m==='auto'){ if(ADJ[no+'_'+date]) return delCham(no,date,true); closeModal(); return; }
+  if(!ttAllowed(no,date,m)){ toast(`Đã dùng hết ${maxTT(dept)} lần sửa cho người này trong tháng. Liên hệ kế toán.`,6000); return; }
+  const doc={employeeNo:no,date,nhom:null,mode:m,byRole:ME.role,inTime:null,outTime:null,outNextDay:false,outTC:null,outTCNext:false,reason:({comat:'Có mặt (X)',xcRieng:'XC · xả ca',P:'P · nghỉ phép'})[m]||m,note:(($('#nlNote')||{}).value||'').trim(),by:ME.name,byUser:ME.username,at:TS.now(),gioMay:null,gioCham:null};
+  const ref=db.collection('adjustments').doc(no+'_'+date); try{ await ref.set(doc); await ref.collection('log').add(doc); }catch(e){ toast(errMsg(e),8000); return; } toast('Đã lưu'); closeModal(); reloadAfterCham(); }
 function reloadAfterCham(){ if(!$('#tab-cham').classList.contains('hide')) loadCham(); if(!$('#tab-month').classList.contains('hide')) loadMonth(); }
 
 /* ===================== HÔM NAY ===================== */
@@ -1731,7 +1749,7 @@ let PAY=null, PAYEDIT={};
 async function loadPay(){ if(PAY&&Object.keys(PAYEDIT).length) await savePayEdits(true); /* V1.9.7: lưu nốt trước khi tải lại */ syncFrom($('#pDept')&&$('#pDept').value,$('#pMonth')&&$('#pMonth').value);
   const dept=$('#pDept').value, ym=$('#pMonth').value; if(!dept||!ym) return;
   const kieu=(DEPTS[dept].kieu)||'gio_he'; $('#pKieu').textContent=KIEU[kieu];
-  if(kieu!=='gio_he'&&kieu!=='thang_tc_gio'&&kieu!=='thang_he'){ $('#pTbl').innerHTML=`<div class="note">Bộ phận này dùng kiểu "${KIEU[kieu]}" — bản V1 chưa tính. Đổi kiểu trong Cấu hình hoặc chờ bản sau.</div>`; return; }
+  if(kieu!=='gio_he'&&kieu!=='thang_tc_gio'&&kieu!=='thang_he'&&kieu!=='muc_ngay'){ /* V1.10.1: mở cho Mức tiền ngày */ $('#pTbl').innerHTML=`<div class="note">Bộ phận này dùng kiểu "${KIEU[kieu]}" — bản V1 chưa tính. Đổi kiểu trong Cấu hình hoặc chờ bản sau.</div>`; return; }
   loadBox('#pTbl','Đang tải dữ liệu lương…');
   const from=ym+'-01', to=ym+'-'+pad(monthDays(ym)); const emps=deptEmps(dept,from,to); const nos=emps.map(e=>String(e.employeeNo));
   let ev,pq; try{ [ev,pq]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(from,-6):from,to), loadAdj(nos,from,to), db.collection('payroll').where('ym','==',ym).get(), isTuCham(dept)?loadLines(dept,from,to):null]).then(r=>[r[0],r[2]]) }catch(e){ loadErr('#pTbl',e,'loadPay()'); return; }
@@ -1795,7 +1813,7 @@ function payColSpec(){ const {dept}=PAY; const R=rulesOf(dept); const LK=!!PAY.l
   add({k:'thuc',lbl:'THỰC LĨNH',val:x=>`<b>${money(x.thuc)}</b>`,xls:x=>x.thuc,tot:T=>money(T.thuc)});
   add({k:'ky',lbl:'KÝ NHẬN',val:()=>'',xls:()=>'',tot:()=>''});
   return C; }
-function payColMenu(C){ const names={he:'Hệ số',heTC:'Hệ TC',abc:'Công ABC (gồm XC)',luong:'Lương HĐ/CB',nc:'Ngày công',gioLam:'Giờ làm',tcGio:'Tăng ca (giờ)',comP:'Cơm (phần)',tienLuong:'Tiền lương',tangCa:'Tiền tăng ca',cc:'Chuyên cần',sl:'Sản lượng',com:'Tiền cơm',bt:'Bao tay',bu:'Bù / khác',tong:'Tổng tiền',bh:'Các khoản trừ',thuc:'Thực lĩnh',ky:'Ký nhận'};
+function payColMenu(C){ const names={he:'Hệ số',heTC:'Hệ TC',diem:'Σ điểm',abc:'Công ABC (gồm XC)',luong:'Lương HĐ/CB',nc:'Ngày công',gioLam:'Giờ làm',tcGio:'Tăng ca (giờ)',comP:'Cơm (phần)',tienLuong:'Tiền lương',tangCa:'Tiền tăng ca',cc:'Chuyên cần',sl:'Sản lượng',com:'Tiền cơm',bt:'Bao tay',bu:'Bù / khác',tong:'Tổng tiền',bh:'Các khoản trừ',thuc:'Thực lĩnh',ky:'Ký nhận'};
   return `<span class="dd"><button type="button" class="pchip ${C.some(c=>!c.on)?'on':''}" onclick="this.parentNode.classList.toggle('open');event.stopPropagation()">☷ Cột ▾</button><div class="ddm" onclick="event.stopPropagation()"><b>Cột hiện trên bảng</b>${C.filter(c=>c.k!=='heTC').map(c=>`<label><input type="checkbox" ${c.on?'checked':''} onchange="togglePayCol('${c.k}')"> ${names[c.k]||c.k}</label>`).join('')}<div class="small" style="margin-top:6px">Nhớ theo tổ · Excel/In theo cột đang hiện</div><button type="button" class="btn sm" style="margin-top:6px;width:100%" onclick="applyColsAllKieu()">Áp cho tất cả tổ cùng kiểu lương</button></div></span>`; }
 document.addEventListener('click',()=>$$('.dd.open').forEach(x=>x.classList.remove('open')));
 /* V1.7.4: Enter/↓ lưu rồi xuống ô cùng cột dòng dưới, ↑ lên (bảng Lương, Nhân viên, mức sản lượng) */
