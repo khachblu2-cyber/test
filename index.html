@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.10.3
+ Phiên bản : V1.10.4
  Ngày      : 27/09/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.10.4 – Tab Tháng: nút "Tiền" (chỉ tổ Mức tiền ngày) — bảng lương từng ngày như MK20b: dòng mức tiền ngày, tiền mỗi
+            ngày (nghìn đồng), Tổng, Bù tiền làm hồ, Tiền cơm, Chuyên cần, Trừ BH, Thực lĩnh (khớp tab Lương); bấm ô mở hộp sửa.
    V1.10.3 – (1) Hộp sửa: lựa chọn "Nhập điểm" (chỉ Quản trị / Kế toán) — gõ điểm, giờ TC, phần cơm (trống = tự tính),
             mọi tổ tính điểm, cả ngày chưa chốt giờ (mode 'diem'). (2) Tổ Mức tiền ngày (Đăng): "Nhập Excel công & cơm" theo
             mẫu kế toán (khớp tên, xem trước, áp dụng / bỏ; payroll/imp_*; số nhập = điều chỉnh ảo, điều chỉnh tay vẫn ưu tiên;
@@ -505,7 +507,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
     <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.10.3</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.10.4</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -561,7 +563,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
   <div class="bar">
     <button class="chip" onclick="shiftMonth(-1)">‹</button><input type="month" id="mMonth" class="chip b" onchange="loadMonth()"><button class="chip" onclick="shiftMonth(1)">›</button>
     <select id="mDept" class="chip" onchange="loadMonth()"></select>
-    <div class="seg" id="mView"><button data-v="lam" class="on" onclick="setMView('lam')">Giờ làm</button><button data-v="tc" onclick="setMView('tc')">Tăng ca</button><button data-v="com" onclick="setMView('com')">Cơm</button><button data-v="all" onclick="setMView('all')">Tổng hợp</button></div>
+    <div class="seg" id="mView"><button data-v="lam" class="on" onclick="setMView('lam')">Giờ làm</button><button data-v="tc" onclick="setMView('tc')">Tăng ca</button><button data-v="com" onclick="setMView('com')">Cơm</button><button data-v="tien" onclick="setMView('tien')" style="display:none">Tiền</button><button data-v="all" onclick="setMView('all')">Tổng hợp</button></div>
     <span style="flex:1"></span>
     <button class="btn sm" onclick="exportMonth()">Xuất Excel</button><button class="btn sm" onclick="loadMonth(true)">Làm mới</button>
   </div>
@@ -1603,13 +1605,14 @@ async function loadMonth(force){ syncFrom($('#mDept')&&$('#mDept').value,$('#mMo
   loadBox('#mTbl','Đang tải dữ liệu tháng… (tổ đông có thể mất 5–10 giây)'); await loadLock(dept,ym);
   const emps=deptEmps(dept,from,to); const nos=emps.map(e=>String(e.employeeNo));
   let ev; try{ [ev]=await Promise.all([loadEvents(nos,isTuChot(dept)?addDays(from,-6):from,to,force), loadAdj(nos,from,to), isTuCham(dept)?loadLines(dept,from,to):null]); }catch(e){ loadErr('#mTbl',e,'loadMonth(true)'); return; }
-  IMP[impKey(dept,ym)]=undefined; await ensureImp(dept,ym); MONTH=computeDept(dept,ev,from,to); MONTHCTX={dept,ym,from,to}; renderMonth();
+  IMP[impKey(dept,ym)]=undefined; delete MPAY[dept+'_'+ym]; await ensureImp(dept,ym); MONTH=computeDept(dept,ev,from,to); MONTHCTX={dept,ym,from,to}; renderMonth();
 }
 let MVIEW=localStorage.getItem('cc_mview')||'lam';
 function setMView(v){ MVIEW=v; localStorage.setItem('cc_mview',v); $$('#mView button').forEach(b=>b.classList.toggle('on',b.dataset.v===v)); if(MONTH) renderMonth(); }
 function renderMonth(){ setTimeout(()=>{ const _lk=lockOf(MONTHCTX.dept,MONTHCTX.ym); const _mn=$('#mNote'); if(_mn){ _mn.querySelectorAll('.lockb').forEach(x=>x.remove()); if(_lk) _mn.insertAdjacentHTML('afterbegin','<div class="lockb">'+lockBanner(MONTHCTX.dept,MONTHCTX.ym)+'</div>'); } },0);
   $$('#mView button').forEach(b=>b.classList.toggle('on',b.dataset.v===MVIEW)); $('#mView').querySelector('[data-v=lam]').textContent=isDiem(MONTHCTX.dept)?'Điểm':'Giờ làm';
-  if(MVIEW==='lam') return renderMonthLam(); if(MVIEW==='tc') return renderMonthTC(); if(MVIEW==='com') return renderMonthCom();
+  { const tb=$('#mView').querySelector('[data-v=tien]'); const mn=isMucNgay(MONTHCTX.dept); if(tb) tb.style.display=mn?'':'none'; if(MVIEW==='tien'&&!mn){ MVIEW='lam'; $$('#mView button').forEach(b=>b.classList.toggle('on',b.dataset.v===MVIEW)); } } /* V1.10.4 */
+  if(MVIEW==='lam') return renderMonthLam(); if(MVIEW==='tc') return renderMonthTC(); if(MVIEW==='com') return renderMonthCom(); if(MVIEW==='tien') return renderMonthTien();
   const {ym,from,to,dept}=MONTHCTX; const n=monthDays(ym); const rows=empRows(MONTH,dept); const R=rulesOf(dept); const tu=isTuCham(dept);
   let tot={gio:0,gioLam:0,tc:0,cong:0,xc:0,com:0,thieu:0,adj:0,tay:0,p:0,may:0,mayChot:0,warn:0,chuaChot:0};
   const lite=ME.role==='totruong'; const dm=isDiem(dept); // tổ trưởng: chỉ ngày + Tổng giờ / Giờ làm / TC
@@ -1668,6 +1671,26 @@ function renderMonthTC(){
 function fmt1c(v){ v=Number(v)||0; return Number.isInteger(v)?String(v):String(Math.round(v*100)/100).replace('.',','); } /* V1.9.9: 1,5 */
 function comCell(d){ return !d?'':d.otherDept?'–':d.isP?'P':d.xc?'XC':(Number(d.com)||''); }
 function comRuleText(R,dm){ return R._comat?`${Number(R.comNgay)>0?Number(R.comNgay):1} phần/ngày có mặt`:R._khungTT?`theo mốc giờ ${[R.comMoc1,R.comMoc2,R.comMoc3].filter(Boolean).join(' · ')||'(chưa đặt)'}`:`có mặt ≥${R.comCoMat}h: 1 · TC ≥${R.comTC}h: +1 · TC ≥${R.comK3}h: +1${Number(R.comGio2)?` · tổng giờ ≥${R.comGio2}h: +1`:''}`; }
+/* V1.10.4: tab Tháng → "Tiền" (tổ Mức tiền ngày) — bảng lương từng ngày như khối ② Excel kế toán (nghìn đồng), thực lĩnh khớp tab Lương */
+var MPAY={};
+async function loadMonthPay(dept,ym){ const k=dept+'_'+ym; const pmap={}; let muc={}; try{ const pq=await db.collection('payroll').where('ym','==',ym).get(); pq.forEach(x=>{ const v=x.data(); if(v.kind==='sanluong'){ if(v.dept===dept) muc=v.muc||{}; } else if(v.employeeNo) pmap[v.employeeNo]=v; }); }catch(e){ $('#mTbl').innerHTML='<div class="note">Lỗi tải bảng lương: '+esc(errMsg(e))+'</div>'; return; } MPAY[k]={pmap,muc}; if(MONTHCTX&&MONTHCTX.dept===dept&&MONTHCTX.ym===ym&&MVIEW==='tien') renderMonthTien(); }
+function renderMonthTien(){ const {ym,dept}=MONTHCTX; const k=dept+'_'+ym; if(!MPAY[k]){ $('#mTbl').innerHTML='<div class="note">Đang tải mức tiền ngày & bảng lương…</div>'; loadMonthPay(dept,ym); return; }
+  const {pmap,muc}=MPAY[k]; const n=monthDays(ym); const rows=empRows(MONTH,dept); const R=rulesOf(dept); const du=R.diemDu||10; const tu=isTuCham(dept);
+  const K=v=>{ v=Number(v)||0; if(!v) return ''; const x=Math.round(v/100)/10; return x.toLocaleString('vi-VN',{minimumFractionDigits:Number.isInteger(x)?0:1,maximumFractionDigits:1}); };
+  const mv=i=>Number(String(muc[pad(i)]||'').replace(',','.'))||0;
+  let h=`<div class="small" style="margin:0 0 6px;color:var(--muted)">Đơn vị <b>nghìn đồng</b> · tiền ngày = điểm × mức ngày / ${du} × hệ · Thực lĩnh khớp tab Lương · ô cam = số nhập Excel</div><table><tr><th rowspan="2">STT</th><th class="l stk" rowspan="2">Họ tên</th><th rowspan="2">Hệ</th><th rowspan="2">Ngày<br>công</th><th rowspan="2">Phần<br>cơm</th>`;
+  for(let i=1;i<=n;i++) h+=`<th>${pad(i)}</th>`; h+=`<th rowspan="2">TỔNG</th><th rowspan="2">BÙ TIỀN<br>LÀM HỒ</th><th rowspan="2">TIỀN<br>CƠM</th><th rowspan="2">CHUYÊN<br>CẦN</th><th rowspan="2">TRỪ TIỀN<br>BẢO HIỂM</th><th rowspan="2">THỰC<br>LĨNH</th></tr><tr>`;
+  for(let i=1;i<=n;i++) h+=`<th style="background:#FFF7E6;color:#7A4B00">${mv(i)||''}</th>`; h+='</tr>';
+  const T={nc:0,com:0,days:Array(n+1).fill(0),tien:0,bu:0,tc:0,cc:0,bh:0,thuc:0};
+  rows.forEach((r,ri)=>{ const e=r.emp,m=r.month; const he=Number(e.he)||1; const p=payRow(e,pmap); const bu=Number(p.bu||0), cc=Number(p.chuyenCan||0), bh=Number(p.baoHiem||0); const tienGio=mucNgayTien(r,ym,R,muc); const tong=(Number(m.tongTien)||0)+tienGio+bu+cc; const thuc=Math.round(tong/1000)*1000-bh; const nc=Math.round((Number(m.diem)||0)*10)/100;
+    T.nc+=nc; T.com+=m.com||0; T.tien+=tienGio; T.bu+=bu; T.tc+=m.tienCom||0; T.cc+=cc; T.bh+=bh; T.thuc+=thuc;
+    h+=`<tr><td>${ri+1}</td><td class="l stk">${esc(e.name)} ${deptTag(e,dept,ym+'-01',ym+'-'+pad(n))}</td><td>${String(he).replace('.',',')}</td><td>${fmtH(nc)}</td><td>${fmt1c(m.com||0)}</td>`;
+    for(let i=1;i<=n;i++){ const date=ym+'-'+pad(i); const d=r.days[date]||{}; let txt=''; if(d.otherDept) txt='–'; else if(d.isP) txt='P'; else if(d.xc) txt='XC'; else { const dv=Number(d.diem)||0; const t=dv>0?dv/du*mv(i)*1000*he:0; T.days[i]+=t; txt=K(t); }
+      h+=`<td class="${cellCls(d,tu,true)}" onclick="openAdj('${esc(e.employeeNo)}','${date}')" title="${esc(cellTitle(d,true))}${d.diem?' · '+fmtH(d.diem)+' điểm':''}">${txt}</td>`; }
+    h+=`<td class="tot">${K(tienGio)}</td><td>${K(bu)}</td><td>${K(m.tienCom)}</td><td>${K(cc)}</td><td>${K(bh)}</td><td class="tot"><b>${K(thuc)}</b></td></tr>`; });
+  h+=`<tr><td class="tot"></td><td class="l stk tot">Tổng (${rows.length} NV)</td><td class="tot"></td><td class="tot">${fmtH(T.nc)}</td><td class="tot">${fmt1c(T.com)}</td>`; for(let i=1;i<=n;i++) h+=`<td class="tot">${K(T.days[i])}</td>`;
+  h+=`<td class="tot">${K(T.tien)}</td><td class="tot">${K(T.bu)}</td><td class="tot">${K(T.tc)}</td><td class="tot">${K(T.cc)}</td><td class="tot">${K(T.bh)}</td><td class="tot"><b>${K(T.thuc)}</b></td></tr></table>`;
+  $('#mTbl').innerHTML=h; $('#mNote').innerHTML=''; }
 function renderMonthCom(){
   const {ym,dept}=MONTHCTX; const n=monthDays(ym); const rows=empRows(MONTH,dept); const R=rulesOf(dept); const tu=isTuCham(dept), dm=isDiem(dept); const tot={com:0,tien:0};
   let h=`<table><tr><th rowspan="2">STT</th><th class="l stk" rowspan="2">Họ tên</th><th colspan="${n}">CƠM — số phần mỗi ngày (${esc(comRuleText(R,dm))})</th><th rowspan="2">Tổng<br>phần</th><th rowspan="2">Tiền cơm<br><small>${fmtN(R.donGiaCom)}/phần</small></th></tr><tr>`;
