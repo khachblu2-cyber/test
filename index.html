@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.11.0
+ Phiên bản : V1.11.1
  Ngày      : 09/10/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,8 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.11.1 – Sửa lỗi V1.11.0: đăng nhập xong app báo "Quản trị vừa đổi quyền" và tải lại liên tục. Nguyên nhân: bộ theo dõi
+            hồ sơ đọc nhầm bản tạm trong máy (chỉ có giờ đăng nhập, chưa có vai trò). Giờ chỉ xét bản đã xác nhận từ máy chủ.
    V1.11.0 – BẢO MẬT GIAI ĐOẠN 1 (MK23): đăng nhập bằng tài khoản Firebase thật (bỏ đăng nhập ẩn danh). Gõ tên + mật
             khẩu cũ như trước; lần đầu máy chủ (hàm chuyenTaiKhoan) tự chuyển tài khoản. Mật khẩu cũ < 6 ký tự → màn
             "Đặt mật khẩu mới" (≥ 8 ký tự) một lần. Thông báo: sai / bị khoá / nhập sai nhiều lần. Bỏ khung tạo Quản trị
@@ -522,7 +524,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
   <button class="btn" style="width:100%;margin-top:8px" onclick="cancelNewPass()">Quay lại</button>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.11.0</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.11.1</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -936,7 +938,7 @@ async function loadMe(u){ const uid=u.uid; await u.getIdToken(true).catch(()=>{}
   loadDevN();
   /* khoá / đổi quyền có hiệu lực ngay: theo dõi hồ sơ của chính mình */
   const key=x=>JSON.stringify([x.role,x.depts||[],x.tabs||null,x.active!==false]); const k0=key(v);
-  if(ME_WATCH) ME_WATCH(); ME_WATCH=db.collection('users').doc(uid).onSnapshot(s=>{ const x=s.exists?s.data():{active:false}; if(key(x)===k0) return;
+  if(ME_WATCH) ME_WATCH(); ME_WATCH=db.collection('users').doc(uid).onSnapshot(s=>{ if(s.metadata&&(s.metadata.hasPendingWrites||s.metadata.fromCache)) return; /* V1.11.1: bỏ qua bản tạm trong máy (chỉ có lastLogin) — chỉ tin bản từ máy chủ */ const x=s.exists?s.data():{active:false}; if(key(x)===k0) return;
     if(x.active===false){ ME_WATCH(); toast('Tài khoản vừa bị khoá.',8000); setTimeout(()=>auth.signOut(),1500); return; }
     ME_WATCH(); toast('Quản trị vừa đổi quyền của bạn — app tải lại sau 5 giây.',6000); setTimeout(()=>location.reload(),5000); },()=>{}); }
 async function doLogin(){
