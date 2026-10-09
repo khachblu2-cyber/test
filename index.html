@@ -1,8 +1,8 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.10.5
- Ngày      : 27/09/2026
+ Phiên bản : V1.11.0
+ Ngày      : 09/10/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
  Mục đích  : Xem chấm công từ 4 máy Hikvision (đẩy về qua Cloud
@@ -13,6 +13,13 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.11.0 – BẢO MẬT GIAI ĐOẠN 1 (MK23): đăng nhập bằng tài khoản Firebase thật (bỏ đăng nhập ẩn danh). Gõ tên + mật
+            khẩu cũ như trước; lần đầu máy chủ (hàm chuyenTaiKhoan) tự chuyển tài khoản. Mật khẩu cũ < 6 ký tự → màn
+            "Đặt mật khẩu mới" (≥ 8 ký tự) một lần. Thông báo: sai / bị khoá / nhập sai nhiều lần. Bỏ khung tạo Quản trị
+            đầu tiên. Cấu hình → Tài khoản: thêm cột "Tài khoản mới" + "Đăng nhập lần cuối"; Lưu tài khoản đi qua hàm
+            máy chủ quanLyTaiKhoan (chỉ Quản trị), mật khẩu mới ≥ 8 ký tự; khoá / đổi quyền có hiệu lực ngay (app người
+            đó tự đẩy ra / tải lại). Mã tổ (dept) của chấm giờ & lượt quét do máy chủ tự gắn. Mọi thay đổi dữ liệu máy
+            chủ ghi nhật ký (audit). Không đổi cách tính công / lương. Vẫn giữ passHash để quay lại V1.10.5 được.
    V1.10.5 – Nhập Excel tổ Mức tiền ngày theo file 100%: số nhập thắng cả điều chỉnh tay làm TRƯỚC lúc nhập (trước đây điều
             chỉnh tay được ưu tiên → lệch cơm); điều chỉnh làm SAU lúc nhập vẫn ưu tiên để kế toán sửa lẻ.
    V1.10.4 – Tab Tháng: nút "Tiền" (chỉ tổ Mức tiền ngày) — bảng lương từng ngày như MK20b: dòng mức tiền ngày, tiền mỗi
@@ -376,6 +383,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-functions-compat.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
@@ -503,13 +511,18 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
   <div class="fld"><label>Tên đăng nhập</label><input id="lu" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')$('#lp').focus()"></div>
   <div class="fld"><label>Mật khẩu</label><input id="lp" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')doLogin()"></div>
   <div class="err" id="lerr"></div>
-  <button class="btn p" style="width:100%" onclick="doLogin()">Đăng nhập</button>
-  <div id="firstAdmin" class="hide"><hr><p>Chưa có tài khoản nào. Tài khoản đầu tiên sẽ là <b>Quản trị</b>.</p>
-    <div class="fld"><label>Họ tên</label><input id="fn"></div>
-    <button class="btn" style="width:100%" onclick="createFirstAdmin()">Tạo tài khoản quản trị</button></div>
+  <button class="btn p" style="width:100%" id="lbtn" onclick="doLogin()">Đăng nhập</button>
+</div>
+<div id="newPass" class="login hide">
+  <h2>Đặt mật khẩu mới</h2><p>Mật khẩu cũ đúng nhưng quá ngắn cho hệ thống bảo mật mới. Đặt mật khẩu mới một lần, từ sau dùng mật khẩu này.</p>
+  <div class="fld"><label>Mật khẩu mới (ít nhất 8 ký tự)</label><input id="np1" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')$('#np2').focus()"></div>
+  <div class="fld"><label>Nhập lại mật khẩu mới</label><input id="np2" type="password" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" onkeydown="if(event.key==='Enter')doNewPass()"></div>
+  <div class="err" id="nperr"></div>
+  <button class="btn p" style="width:100%" id="npbtn" onclick="doNewPass()">Lưu và vào app</button>
+  <button class="btn" style="width:100%;margin-top:8px" onclick="cancelNewPass()">Quay lại</button>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.10.5</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.11.0</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -635,6 +648,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
+const FNS = firebase.app().functions('asia-southeast1'); /* V1.11.0: hàm máy chủ bảo mật */
 const FV = firebase.firestore.FieldValue;
 const TS = firebase.firestore.Timestamp;
 
@@ -870,7 +884,7 @@ const pad=n=>String(n).padStart(2,'0');
 function todayVN(){ return vnDate(Date.now()); }
 function addDays(ds,n){ const d=new Date(ds+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().slice(0,10); }
 function monthDays(ym){ const [y,m]=ym.split('-').map(Number); return new Date(Date.UTC(y,m,0)).getUTCDate(); }
-function errMsg(e){ const m=String(e&&e.message||e); if(/permission|insufficient/i.test(m)) return 'KHÔNG LƯU ĐƯỢC: Firestore từ chối ghi (rules chưa deploy hoặc chưa bật Anonymous). Chạy lại "firebase deploy" rồi thử lại.'; if(/too many index entries|maximum size|exceeds/i.test(m)) return 'Dữ liệu quá lớn để lưu một lần — báo người làm app. ('+m.slice(0,120)+')'; if(/requires an index|index.*(build|creat)/i.test(m)) return 'Firestore đang xây index, chờ 2–5 phút rồi thử lại.'; /* V1.10.2: không báo nhầm "xây index" */ return 'LỖI: '+m; }
+function errMsg(e){ const m=String(e&&e.message||e); if(/permission|insufficient/i.test(m)) return 'KHÔNG LƯU ĐƯỢC: máy chủ từ chối (không đủ quyền hoặc phiên đăng nhập đã hết — thoát ra đăng nhập lại).'; if(/too many index entries|maximum size|exceeds/i.test(m)) return 'Dữ liệu quá lớn để lưu một lần — báo người làm app. ('+m.slice(0,120)+')'; if(/requires an index|index.*(build|creat)/i.test(m)) return 'Firestore đang xây index, chờ 2–5 phút rồi thử lại.'; /* V1.10.2: không báo nhầm "xây index" */ return 'LỖI: '+m; }
 window.addEventListener('unhandledrejection',e=>{ console.error(e.reason); toast(errMsg(e.reason),8000); });
 function toast(m,ms=2500){ const t=$('#toast'); t.textContent=m; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',ms); }
 async function sha256(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
@@ -888,30 +902,68 @@ const KIEU={gio_he:'Lương giờ × hệ số',thang_tc_gio:'Lương tháng —
 const LYDO=['Quên quét ra','Quên quét vào','Máy không nhận mặt','Đi công tác / việc công ty','Nghỉ giữa ca có phép','Khác'];
 
 /* ===================== ĐĂNG NHẬP ===================== */
+/* V1.11.0: đăng nhập bằng tài khoản Firebase (email ảo từ tên đăng nhập — giống hàm máy chủ emailOf) */
+const EMAIL_DOMAIN='tk.chamcongcbt.app';
+async function emailOf(u){ u=String(u==null?'':u).trim().toLowerCase(); const safe=/^[a-z0-9][a-z0-9._-]{0,59}$/.test(u)&&!u.includes('..')&&!u.endsWith('.'); if(safe) return u+'@'+EMAIL_DOMAIN; const hex=[...new TextEncoder().encode(u)].map(x=>x.toString(16).padStart(2,'0')).join(''); return (hex.length<=58?'x-'+hex:'h-'+(await sha256(u)).slice(0,40))+'@'+EMAIL_DOMAIN; }
+async function callFn(name,data){ const r=await FNS.httpsCallable(name)(data); return r.data||{}; }
+function fnCode(e){ return String(e&&e.code||'').replace(/^(functions|auth)\//,''); }
+const LOGIN_MSG={sai:'Sai tên đăng nhập hoặc mật khẩu.',khoa:'Tài khoản đang bị khoá. Liên hệ Quản trị.',nhieu:'Nhập sai nhiều lần, thử lại sau ít phút.',mang:'Không kết nối được máy chủ — kiểm tra mạng rồi thử lại.'};
+function loginErr(e){ const c=fnCode(e), m=String(e&&e.message||'');
+  if(c==='unauthenticated'||c==='invalid-credential'||c==='wrong-password'||c==='user-not-found'||c==='invalid-login-credentials') return LOGIN_MSG.sai;
+  if(c==='permission-denied'||c==='user-disabled') return LOGIN_MSG.khoa;
+  if(c==='resource-exhausted'||c==='too-many-requests') return LOGIN_MSG.nhieu;
+  if(c==='invalid-argument'&&m==='ngan') return 'Mật khẩu mới phải ít nhất 8 ký tự.';
+  if(c==='not-found') return 'Máy chủ chưa cài hàm đăng nhập — báo Quản trị.';
+  if(c==='operation-not-allowed') return 'Máy chủ chưa bật đăng nhập Email/Password — báo Quản trị.';
+  if(c==='network-request-failed'||c==='unavailable'||c==='deadline-exceeded') return LOGIN_MSG.mang;
+  if(c==='internal') return 'Máy chủ báo lỗi — thử lại; nếu vẫn lỗi báo Quản trị.';
+  return 'Lỗi đăng nhập: '+(m||c); }
+function showLogin(){ $('#app').classList.add('hide'); $('#newPass').classList.add('hide'); $('#login').classList.remove('hide'); }
+let ME_WATCH=null;
+auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(()=>{}); /* như trước: đóng tab là thoát */
+try{ sessionStorage.removeItem('cc_me'); }catch(e){}
 auth.onAuthStateChanged(async u=>{
-  if(!u){ try{ await auth.signInAnonymously(); }catch(e){ $('#login').classList.remove('hide'); $('#lerr').textContent='Không kết nối được Firebase: '+e.message; } return; }
-  const saved=sessionStorage.getItem('cc_me');
-  if(saved){ ME=JSON.parse(saved); await enterApp(); return; }
-  $('#login').classList.remove('hide');
-  const n=await db.collection('users').limit(1).get();
-  if(n.empty) $('#firstAdmin').classList.remove('hide');
+  if(!u){ if(ME){ ME=null; location.reload(); return; } showLogin(); return; }
+  if(u.isAnonymous){ await auth.signOut(); return; } /* phiên ẩn danh của bản cũ → đăng nhập lại */
+  if(ME) return;
+  try{ await loadMe(u); }catch(e){ ME=null; await auth.signOut().catch(()=>{}); showLogin(); $('#lerr').textContent=e&&e.message==='khoa'?LOGIN_MSG.khoa:loginErr(e); return; }
+  await enterApp();
 });
+async function loadMe(u){ const uid=u.uid; await u.getIdToken(true).catch(()=>{}); /* lấy quyền mới nhất */ const d=await db.collection('users').doc(uid).get();
+  if(!d.exists||d.data().active===false) throw new Error('khoa');
+  const v=d.data(); ME={username:uid,name:v.name||uid,role:v.role,depts:v.depts||[],tabs:v.tabs||null};
+  db.collection('users').doc(uid).set({lastLogin:TS.now()},{merge:true}).catch(()=>{});
+  loadDevN();
+  /* khoá / đổi quyền có hiệu lực ngay: theo dõi hồ sơ của chính mình */
+  const key=x=>JSON.stringify([x.role,x.depts||[],x.tabs||null,x.active!==false]); const k0=key(v);
+  if(ME_WATCH) ME_WATCH(); ME_WATCH=db.collection('users').doc(uid).onSnapshot(s=>{ const x=s.exists?s.data():{active:false}; if(key(x)===k0) return;
+    if(x.active===false){ ME_WATCH(); toast('Tài khoản vừa bị khoá.',8000); setTimeout(()=>auth.signOut(),1500); return; }
+    ME_WATCH(); toast('Quản trị vừa đổi quyền của bạn — app tải lại sau 5 giây.',6000); setTimeout(()=>location.reload(),5000); },()=>{}); }
 async function doLogin(){
   const u=$('#lu').value.trim().toLowerCase(), p=$('#lp').value; $('#lerr').textContent='';
   if(!u||!p){ $('#lerr').textContent='Nhập tên đăng nhập và mật khẩu.'; return; }
-  const d=await db.collection('users').doc(u).get();
-  if(!d.exists || d.data().passHash!==await sha256(p) || d.data().active===false){ $('#lerr').textContent='Sai tên đăng nhập hoặc mật khẩu.'; return; }
-  ME={username:u,name:d.data().name,role:d.data().role,depts:d.data().depts||[],tabs:d.data().tabs||null};
-  sessionStorage.setItem('cc_me',JSON.stringify(ME)); await enterApp();
+  if(u.includes('/')){ $('#lerr').textContent=LOGIN_MSG.sai; return; }
+  const btn=$('#lbtn'); btn.disabled=true; btn.textContent='Đang đăng nhập…';
+  try{ const email=await emailOf(u);
+    try{ await auth.signInWithEmailAndPassword(email,p); return; }
+    catch(e){ const c=fnCode(e); if(!['invalid-credential','invalid-login-credentials','wrong-password','user-not-found','invalid-email'].includes(c)) throw e; }
+    /* chưa có tài khoản mới → máy chủ kiểm mật khẩu cũ rồi tạo */
+    const r=await callFn('chuyenTaiKhoan',{u,p});
+    if(r.canMatKhauMoi){ NEWPASS={u,p}; $('#login').classList.add('hide'); $('#newPass').classList.remove('hide'); $('#np1').value=''; $('#np2').value=''; $('#nperr').textContent=''; $('#np1').focus(); return; }
+    await auth.signInWithEmailAndPassword(email,p);
+  }catch(e){ $('#lerr').textContent=loginErr(e); }
+  finally{ btn.disabled=false; btn.textContent='Đăng nhập'; }
 }
-async function createFirstAdmin(){
-  const u=$('#lu').value.trim().toLowerCase(), p=$('#lp').value, n=$('#fn').value.trim();
-  if(!u||p.length<4||!n){ $('#lerr').textContent='Điền đủ tên đăng nhập, mật khẩu (≥4 ký tự), họ tên.'; return; }
-  const chk=await db.collection('users').limit(1).get(); if(!chk.empty){ $('#lerr').textContent='Đã có tài khoản, không tạo được nữa.'; return; }
-  try{ await db.collection('users').doc(u).set({name:n,passHash:await sha256(p),role:'admin',depts:[],active:true,createdAt:TS.now()}); }catch(e){ $('#lerr').textContent=errMsg(e); return; }
-  toast('Đã tạo tài khoản quản trị'); doLogin();
-}
-function logout(){ sessionStorage.removeItem('cc_me'); location.reload(); }
+let NEWPASS=null;
+function cancelNewPass(){ NEWPASS=null; $('#lp').value=''; showLogin(); }
+async function doNewPass(){ if(!NEWPASS){ cancelNewPass(); return; } const a=$('#np1').value, b=$('#np2').value; $('#nperr').textContent='';
+  if(a.length<8){ $('#nperr').textContent='Mật khẩu mới phải ít nhất 8 ký tự.'; return; }
+  if(a!==b){ $('#nperr').textContent='Hai lần nhập không giống nhau.'; return; }
+  const btn=$('#npbtn'); btn.disabled=true; btn.textContent='Đang lưu…';
+  try{ await callFn('chuyenTaiKhoan',{u:NEWPASS.u,p:NEWPASS.p,newP:a}); const email=await emailOf(NEWPASS.u); NEWPASS=null; $('#lp').value=''; await auth.signInWithEmailAndPassword(email,a); }
+  catch(e){ $('#nperr').textContent=loginErr(e); }
+  finally{ btn.disabled=false; btn.textContent='Lưu và vào app'; } }
+function logout(){ if(ME_WATCH) ME_WATCH(); auth.signOut().finally(()=>location.reload()); }
 const TAB_LIST=[['today','Hôm nay'],['cham','Chấm công'],['month','Tháng'],['bc','Báo cáo ngày'],['pay','Lương'],['tong','Tổng hợp'],['detail','Chi tiết quét'],['emp','Nhân viên'],['cfg','Cấu hình']];
 const ROLE_TABS={admin:['today','cham','month','bc','pay','tong','detail','emp','cfg'],ketoan:['today','cham','month','bc','pay','tong','detail','emp'],totruong:['cham','month']};
 function myTabs(){ let t=(ME.tabs&&ME.tabs.length)?ME.tabs.slice():(ROLE_TABS[ME.role]||['today']).slice(); if(ME.role!=='totruong'&&!t.includes('detail')&&t.includes('month')) t.splice(t.indexOf('pay')>=0?t.indexOf('pay')+1:t.length,0,'detail'); /* V1.4.5 */ if(ME.role!=='admin') t=t.filter(x=>x!=='cfg'); return t; }
@@ -1519,7 +1571,7 @@ function rowToday(r,date,isToday,stt){ const e=r.emp,d=r.days[date];
 }
 const DEVN={}; function devName(mac){ return DEVN[mac]||('Máy '+String(mac).slice(-4)); }
 function devLabel(mac){ const n=devName(mac); const m=n.match(/(\d+)\s*$/); return `<span class="lg">${esc(n)}</span><span class="sh">${m?'M'+m[1]:esc(n)}</span>`; }
-db.collection('devices').get().then(q=>q.forEach(x=>{ DEVN[x.id]=x.data().deviceName||x.id; })).catch(()=>{});
+function loadDevN(){ db.collection('devices').get().then(q=>q.forEach(x=>{ DEVN[x.id]=x.data().deviceName||x.id; })).catch(()=>{}); } /* V1.11.0: nạp sau khi đăng nhập (chưa đăng nhập thì máy chủ từ chối) */
 
 /* ===================== ĐIỀU CHỈNH ===================== */
 async function openAdj(no,date){
@@ -2364,18 +2416,26 @@ async function saveDept(){ const id=$('#cDept').value; if(!id) return; const rul
   const cur=DEPTS[id]||(DEPTS[id]={}); deptBase(cur); Object.assign(cur,top); if(moi){ CFG_MKEYS.forEach(k=>{ if(mon[k]!==undefined) cur.__base[k]=cfgClone(mon[k]); }); } cur.thang=cur.thang||{}; cur.thang[M]=Object.assign({},cur.thang[M]||{},cfgClone(mon)); cur.__applied=null; applyCfgMonth(M);
   saveBaseCache(true); fillDeptSelects(); $('#cDept').value=id; Object.keys(EVCACHE).forEach(k=>delete EVCACHE[k]); toast('Đã lưu bộ phận '+d.ten+' · tháng '+M.slice(5)+'/'+M.slice(0,4)); }
 async function renderUsers(){ const q=await db.collection('users').get(); const box=$('#usersBox'); if(!box) return;
-  box.innerHTML='<table><tr><th>Đăng nhập</th><th class="l">Họ tên</th><th>Vai trò</th><th class="l">Bộ phận (tổ trưởng)</th><th class="l">Tab</th><th>Hoạt động</th><th></th></tr>'+q.docs.map(x=>{const u=x.data(); return `<tr><td>${esc(x.id)}</td><td class="l">${esc(u.name)}</td><td>${{admin:'Quản trị',ketoan:'Kế toán',totruong:'Tổ trưởng'}[u.role]||u.role}</td><td class="l">${(u.depts||[]).map(d=>DEPTS[d]?esc(DEPTS[d].ten):d).join(', ')}</td><td class="l small">${((u.tabs&&u.tabs.length)?u.tabs:ROLE_TABS[u.role]||[]).map(k=>(TAB_LIST.find(t=>t[0]===k)||[k,k])[1]).join(', ')}</td><td>${u.active===false?'Khoá':'✓'}</td><td><button class="btn sm" onclick="editUser('${esc(x.id)}')">Sửa</button></td></tr>`;}).join('')+'</table>'; }
+  const dm=v=>{ const t=tsMs(v); if(!t) return ''; const d=new Date(t); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0'); };
+  const dmt=v=>{ const t=tsMs(v); if(!t) return '—'; const d=new Date(t); return dm(v)+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'); };
+  let nMig=0; q.docs.forEach(x=>{ if(x.data().migratedAt) nMig++; });
+  box.innerHTML='<table><tr><th>Đăng nhập</th><th class="l">Họ tên</th><th>Vai trò</th><th class="l">Bộ phận (tổ trưởng)</th><th class="l">Tab</th><th>Hoạt động</th><th>Tài khoản mới</th><th>Đăng nhập lần cuối</th><th></th></tr>'+q.docs.map(x=>{const u=x.data(); return `<tr><td>${esc(x.id)}</td><td class="l">${esc(u.name)}</td><td>${{admin:'Quản trị',ketoan:'Kế toán',totruong:'Tổ trưởng'}[u.role]||u.role}</td><td class="l">${(u.depts||[]).map(d=>DEPTS[d]?esc(DEPTS[d].ten):d).join(', ')}</td><td class="l small">${((u.tabs&&u.tabs.length)?u.tabs:ROLE_TABS[u.role]||[]).map(k=>(TAB_LIST.find(t=>t[0]===k)||[k,k])[1]).join(', ')}</td><td>${u.active===false?'Khoá':'✓'}</td><td>${u.migratedAt?`<span style="color:#15803D;font-weight:700">✓ ${dm(u.migratedAt)}</span>`:'<span style="color:#B45309;font-weight:700">Chưa chuyển</span>'}</td><td>${dmt(u.lastLogin)}</td><td><button class="btn sm" onclick="editUser('${esc(x.id)}')">Sửa</button></td></tr>`;}).join('')+'</table>'
+   +(nMig<q.size?`<div class="note" style="margin:8px 0">Đã chuyển ${nMig}/${q.size} tài khoản. Tài khoản "Chưa chuyển" phải đăng nhập 1 lần trước khi bật giai đoạn 2, hoặc Quản trị đặt lại mật khẩu cho họ.</div>`:'<div class="small" style="margin:8px 0;color:#15803D">Tất cả tài khoản đã chuyển sang đăng nhập mới.</div>'); }
 async function editUser(id){ const u=id?(await db.collection('users').doc(id).get()).data():{role:'totruong',depts:[],active:true};
   openModal(`<h3>${id?'Sửa tài khoản':'Tài khoản mới'}</h3><div class="fld"><label>Tên đăng nhập</label><input id="uId" value="${esc(id)}" ${id?'disabled':''} autocapitalize="off" autocorrect="off" spellcheck="false"></div><div class="fld"><label>Họ tên</label><input id="uName" value="${esc(u.name||'')}"></div>
-   <div class="fld"><label>Mật khẩu ${id?'(để trống = giữ nguyên)':''}</label><input id="uPass" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="chữ thường/hoa đúng như sẽ gõ"></div>
+   <div class="fld"><label>${id?'Đặt lại mật khẩu (để trống = giữ nguyên; ít nhất 8 ký tự)':'Mật khẩu (ít nhất 8 ký tự)'}</label><input id="uPass" type="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="chữ thường/hoa đúng như sẽ gõ"></div>
    <div class="fld"><label>Vai trò</label><select id="uRole"><option value="totruong" ${u.role==='totruong'?'selected':''}>Tổ trưởng — xem & điều chỉnh tổ mình</option><option value="ketoan" ${u.role==='ketoan'?'selected':''}>Kế toán — tất cả tổ, lương, nhân viên</option><option value="admin" ${u.role==='admin'?'selected':''}>Quản trị — thêm cấu hình & tài khoản</option></select></div>
    <div class="fld"><label>Tab được dùng (để trống = theo vai trò: tổ trưởng = Chấm công + Tháng)</label><div class="grid2">${TAB_LIST.map(([k,lb])=>`<label class="chk"><input type="checkbox" class="uTab" value="${k}" ${(u.tabs||[]).includes(k)?'checked':''}> ${lb}</label>`).join('')}</div></div>
    <div class="fld"><label>Bộ phận được xem (tổ trưởng)</label><div class="grid2">${Object.keys(DEPTS).sort((a,b)=>DEPTS[a].ten.localeCompare(DEPTS[b].ten)).map(d=>`<label class="chk"><input type="checkbox" class="uDept" value="${d}" ${(u.depts||[]).includes(d)?'checked':''}> ${esc(DEPTS[d].ten)}</label>`).join('')}</div></div>
    <label class="chk"><input type="checkbox" id="uActive" ${u.active!==false?'checked':''}> Đang hoạt động</label>
-   <div class="btnrow"><button class="btn" onclick="closeModal()">Hủy</button><button class="btn p" onclick="saveUser('${esc(id)}')">Lưu</button></div>`); }
-async function saveUser(id){ const nid=(id||$('#uId').value).trim().toLowerCase(); const name=$('#uName').value.trim(), p=$('#uPass').value; if(!nid||!name){ toast('Thiếu tên đăng nhập / họ tên'); return; } if(!id&&p.length<4){ toast('Mật khẩu ≥4 ký tự'); return; }
-  const u={name,role:$('#uRole').value,depts:$$('.uDept:checked').map(c=>c.value),tabs:$$('.uTab:checked').map(c=>c.value),active:$('#uActive').checked,updatedAt:TS.now(),updatedBy:ME.username}; if(p) u.passHash=await sha256(p); if(!id) u.createdAt=TS.now();
-  try{ await db.collection('users').doc(nid).set(u,{merge:true}); }catch(e){ toast(errMsg(e),8000); return; } closeModal(); toast('Đã lưu tài khoản'); renderUsers(); }
+   <div class="btnrow"><button class="btn" onclick="closeModal()">Hủy</button><button class="btn p" id="uSave" onclick="saveUser('${esc(id)}')">Lưu</button></div>`); }
+async function saveUser(id){ const nid=(id||$('#uId').value).trim().toLowerCase(); const name=$('#uName').value.trim(), p=$('#uPass').value; if(!nid||!name){ toast('Thiếu tên đăng nhập / họ tên'); return; } if(nid.includes('/')){ toast('Tên đăng nhập không được có dấu /'); return; }
+  if(!id&&p.length<8){ toast('Mật khẩu ít nhất 8 ký tự'); return; } if(id&&p&&p.length<8){ toast('Mật khẩu mới ít nhất 8 ký tự (để trống = giữ nguyên)'); return; }
+  const data={id:nid,name,role:$('#uRole').value,depts:$$('.uDept:checked').map(c=>c.value),tabs:$$('.uTab:checked').map(c=>c.value),active:$('#uActive').checked,isNew:!id}; if(p) data.newPass=p;
+  const btn=$('#uSave'); if(btn){ btn.disabled=true; btn.textContent='Đang lưu…'; }
+  try{ await callFn('quanLyTaiKhoan',data); }catch(e){ if(btn){ btn.disabled=false; btn.textContent='Lưu'; } const c=fnCode(e), m=String(e&&e.message||'');
+    toast(c==='already-exists'?'Tên đăng nhập này đã có.':c==='failed-precondition'?'Không tự hạ quyền hoặc tự khoá tài khoản của chính mình.':c==='permission-denied'?'Chỉ Quản trị được sửa tài khoản (thoát ra đăng nhập lại nếu vừa được cấp quyền).':m==='mat-khau-ngan'?'Mật khẩu ít nhất 8 ký tự.':m==='can-mat-khau'?'Tài khoản mới phải có mật khẩu.':c==='not-found'?'Máy chủ chưa cài hàm quản lý tài khoản.':'Không lưu được: '+(m||c),8000); return; }
+  closeModal(); toast(p?'Đã lưu tài khoản — mật khẩu mới có hiệu lực ngay':'Đã lưu tài khoản'); renderUsers(); }
 
 /* V1.9.0: mỗi màn hình tự nạp cấu hình đúng tháng của nó trước khi chạy */
 (function(){ const W=(names,get)=>names.forEach(n=>{ const f=window[n]; if(typeof f!=='function'){ console.warn('cfgwrap: thiếu hàm',n); return; } window[n]=function(...a){ try{ const ym=get(a); if(ym) applyCfgMonth(ym); }catch(e){} return f.apply(this,a); }; });
