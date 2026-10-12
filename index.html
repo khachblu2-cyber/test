@@ -1,7 +1,7 @@
 <!--
 ==========================================================
  CHẤM CÔNG — App nội bộ (1 file HTML)
- Phiên bản : V1.12.1
+ Phiên bản : V1.12.2
  Ngày      : 12/10/2026
  Chủ dự án : Tinh Nguyen
  Firebase  : project chamcongcbt (asia-southeast1)
@@ -13,6 +13,9 @@
  Firestore : events (Cloud Function ghi) · employees · departments
              · users · adjustments/{empNo_date} · payroll/{ym_empNo}
  Lịch sử   :
+   V1.12.2 – Bổ sung V1.12.1: lượt quét trong vòng 1h trước giờ vào TT hôm sau thuộc về HÔM SAU (trừ tổ ca 24h, trừ
+            nhóm có giờ ra sát giờ đó) — vd Xếp Hộp: ra 20:52 nhưng app lấy 07:00 sáng hôm sau làm giờ ra (19,9h < 20h nên
+            V1.12.1 chưa chặn), hôm sau thành Vắng.
    V1.12.1 – Sửa lỗi ghép ca ngày đã chốt giờ: tổ nhiều nhóm có nhóm ra qua đêm (vd Xếp Hộp N1 10:00→01:00) lấy nhầm
             lượt quét vào SÁNG HÔM SAU của người nhóm ngày làm giờ ra → các ngày sau lệch dây chuyền (vào 18h, ra 7h sáng).
             Giờ ra giờ không quá "Một ca tối đa" (Cấu hình) tính từ giờ vào, giống ngày chưa chốt. Tháng đã khoá giữ nguyên.
@@ -532,7 +535,7 @@ td.w{background:var(--amber-soft);color:var(--amber);font-weight:700}td.pp{backg
   <button class="btn" style="width:100%;margin-top:8px" onclick="cancelNewPass()">Quay lại</button>
 </div>
 <div id="app" class="hide">
-<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.12.1</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
+<div class="top"><div><div class="t">Chấm Công</div><div class="s" id="who"></div></div><div class="sp"></div><span class="ver">V1.12.2</span><button class="btn sm" style="border-color:#fff;color:#fff;background:none" onclick="logout()">Thoát</button></div>
 <div class="tabs" id="tabs">
   <button data-t="today" class="on">Hôm nay</button><button data-t="cham">Chấm công</button><button data-t="month">Tháng</button><button data-t="bc">Báo cáo ngày</button><button data-t="pay">Lương</button><button data-t="tong">Tổng hợp</button><button data-t="detail">Chi tiết quét</button><button data-t="emp">Nhân viên</button><button data-t="cfg">Cấu hình</button>
 </div>
@@ -813,7 +816,7 @@ function sessionInWindow(scans, L, used, R){
   let inW=scans.filter(s=>!used.has(s)&&s.ms>=a&&s.ms<=b).sort((x,y)=>x.ms-y.ms);
   if(!inW.length) return null;
   if(L.exact){ /* V1.3.8: chưa chốt — quét vào trong ngày, quét ra lấy tới tối đa maxCa giờ sau (qua đêm vẫn ghép đúng) */ const f=inW[0].ms, end=f+(R.maxCa||20)*3600000; inW=scans.filter(s=>!used.has(s)&&s.ms>=f&&s.ms<=end).sort((x,y)=>x.ms-y.ms); }
-  else if(L.nearIn&&L.nearIn.length){ /* V1.4.1: ngày đã chốt — lượt vào = lượt gần giờ tổ trưởng nhất (bỏ lượt lẻ đứng trước). V1.4.6: lượt vào phải trước giờ ra TT − minCa; lượt sau đó không được làm "vào" (tránh vơ giờ vào của ngày sau ở tổ ca 24h so le) */ const lim=L.outMs-Math.max(1,(R.minCa||1))*3600000; const cands=inW.filter(s=>s.ms<=lim); if(!cands.length) return null; const dist=s=>Math.min(...L.nearIn.map(t=>Math.abs(s.ms-t))); const near=cands.filter(s=>dist(s)<=3600000); let best; if(near.length) best=near[0]; else { best=cands[0]; for(const s of cands) if(dist(s)<dist(best)) best=s; } /* V1.6.0: ưu tiên lượt SỚM NHẤT nằm trong ±1h của một nhóm; không có thì lượt gần nhất */ inW.filter(s=>s.ms<best.ms).forEach(s=>used.add(s)); const capMs=best.ms+(R.maxCa||20)*3600000; inW=inW.filter(s=>s.ms>=best.ms&&s.ms<=capMs); } /* V1.12.1: lượt ra không quá "Một ca tối đa" giờ sau lượt vào — tránh lấy lượt vào sáng hôm sau làm giờ ra (tổ nhiều nhóm có nhóm ra qua đêm) */
+  else if(L.nearIn&&L.nearIn.length){ /* V1.4.1: ngày đã chốt — lượt vào = lượt gần giờ tổ trưởng nhất (bỏ lượt lẻ đứng trước). V1.4.6: lượt vào phải trước giờ ra TT − minCa; lượt sau đó không được làm "vào" (tránh vơ giờ vào của ngày sau ở tổ ca 24h so le) */ const lim=L.outMs-Math.max(1,(R.minCa||1))*3600000; const cands=inW.filter(s=>s.ms<=lim); if(!cands.length) return null; const dist=s=>Math.min(...L.nearIn.map(t=>Math.abs(s.ms-t))); const near=cands.filter(s=>dist(s)<=3600000); let best; if(near.length) best=near[0]; else { best=cands[0]; for(const s of cands) if(dist(s)<dist(best)) best=s; } /* V1.6.0: ưu tiên lượt SỚM NHẤT nằm trong ±1h của một nhóm; không có thì lượt gần nhất */ inW.filter(s=>s.ms<best.ms).forEach(s=>used.add(s)); let capMs=best.ms+(R.maxCa||20)*3600000; if(L.nextIn&&L.nearOut){ let gi=0; L.nearIn.forEach((t,i)=>{ if(Math.abs(best.ms-t)<Math.abs(best.ms-L.nearIn[gi])) gi=i; }); const gOut=L.nearOut[gi]; if(gOut<L.nextIn-3600000) capMs=Math.min(capMs,L.nextIn-3600000); } /* V1.12.2: lượt quét trong 1h trước giờ vào TT hôm sau thuộc về hôm sau (người ra trước đó lâu) */ inW=inW.filter(s=>s.ms>=best.ms&&s.ms<=capMs); } /* V1.12.1: lượt ra không quá "Một ca tối đa" giờ sau lượt vào — tránh lấy lượt vào sáng hôm sau làm giờ ra (tổ nhiều nhóm có nhóm ra qua đêm) */
   inW.forEach(s=>used.add(s));
   const first=inW[0], last=inW[inW.length-1];
   const c={inMs:first.ms,inMac:first.mac,scans:inW,date:null};
@@ -1175,7 +1178,7 @@ function computeDeptCore(deptId, events, from, to){
     if(tuCham&&!PRE){ // (A1) ngày đã chốt giờ: khung giờ tổ trưởng; ngày chưa chốt: khung giờ mặc định của tổ (Cấu hình)
       /* V1.4.1: ghép ngày đã chốt trước (ưu tiên), ngày chưa chốt lấy lượt còn dư; ngày Nghỉ ca (ca 24h) bỏ lượt lẻ */
       const dayList=[]; for(let d=addDays(from,-1); d<=addDays(to,1); d=addDays(d,1)) dayList.push(d);
-      for(const d of dayList){ const l=lineOf(deptId,d); if(!l||l.xc) continue; const Ls=lineGroupsOf(deptId,l).map(v=>lineB(deptId,v,R)); let outMax=Math.max(...Ls.map(x=>x.outMs)); if(l._orig){ const lo=Object.assign({},l,{outTime:l._orig.outTime,outNextDay:l._orig.outNextDay,groups:l._orig.groups}); outMax=Math.max(outMax,...lineGroupsOf(deptId,lo).map(v=>lineB(deptId,v,R).outMs)); } /* V1.6.2: khung tìm quét ra theo giờ ra gốc, không co theo giờ tự chốt */ const L={inMs:Math.min(...Ls.map(x=>x.inMs)),outMs:outMax,nearIn:Ls.map(x=>x.inMs)}; const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } }
+      for(const d of dayList){ const l=lineOf(deptId,d); if(!l||l.xc) continue; const Ls=lineGroupsOf(deptId,l).map(v=>lineB(deptId,v,R)); let outMax=Math.max(...Ls.map(x=>x.outMs)); if(l._orig){ const lo=Object.assign({},l,{outTime:l._orig.outTime,outNextDay:l._orig.outNextDay,groups:l._orig.groups}); outMax=Math.max(outMax,...lineGroupsOf(deptId,lo).map(v=>lineB(deptId,v,R).outMs)); } /* V1.6.2: khung tìm quét ra theo giờ ra gốc, không co theo giờ tự chốt */ const L={inMs:Math.min(...Ls.map(x=>x.inMs)),outMs:outMax,nearIn:Ls.map(x=>x.inMs),nearOut:Ls.map(x=>x.outMs)}; { const ln=lineOf(deptId,addDays(d,1)); if(ln&&!ln.xc&&!R._ca24) L.nextIn=Math.min(...lineGroupsOf(deptId,ln).map(v=>lineB(deptId,v,R).inMs)); } /* V1.12.2: giờ vào TT hôm sau */ const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } }
       for(const d of dayList){ if(byDate[d]) continue; const l=lineOf(deptId,d); if(l) continue; if(R._ca24&&byDate[addDays(d,-1)]) continue; const L={inMs:vnMs(d,'00:00'),outMs:vnMs(d,'00:00')+86400000-1,exact:true}; const ses=sessionInWindow(b.scans,L,used,R); if(ses){ ses.date=d; byDate[d]=ses; } } }
     const ss=PRE?[]:buildSessions(b.scans.filter(x=>!used.has(x)),R); // (A2) còn lại: ghép ca theo khoảng cách
     for(const s of ss){ if(byDate[s.date]) continue; if(tuCham&&R._ca24&&byDate[addDays(s.date,-1)]) continue; /* V1.4.1: ngày Nghỉ ca bỏ lượt lẻ */ if(!byDate[s.date]||(s.outMs&&!byDate[s.date].outMs)) byDate[s.date]=s; }
