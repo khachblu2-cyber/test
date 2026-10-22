@@ -1,7 +1,7 @@
 <!--
 ================================================================================
   BÀN GIAO — APP CÂN TÔM (Tính tiền công nhật)
-  Phiên bản: V1.14.0    Cập nhật: 22/10/2026
+  Phiên bản: V1.14.1    Cập nhật: 22/10/2026
 --------------------------------------------------------------------------------
   TÀI LIỆU NÀY NẰM NGAY TRONG FILE, KHÔNG BAO GIỜ LỆCH VỚI CODE.
   Mỗi lần sửa file BẮT BUỘC cập nhật luôn phần này (số phiên bản + dòng
@@ -614,6 +614,28 @@
            Tài khoản CŨ chưa có permissions.muaphieu -> undefined -> KHÔNG
            thấy tab. Phải vào tab Người dùng TICK cho ai cần in.
 
+  V1.14.1  THÊM HAI NÚT CHỈ-ĐỌC vào tab Mua phiếu. Không đụng phần ghi tiền.
+           (md5 ghi ở BAN-GIAO-TONG-THE)
+
+           Nay tab có ba nút:
+             "In thử"              -> mpInThu()    chỉ in, KHÔNG trừ nợ
+             "Xuất Excel"          -> mpXuatExcel() chỉ xuất, KHÔNG trừ nợ
+             "In A4 & trừ công nợ" -> mpInVaChi()   như V1.14.0
+
+           TỜ IN THỬ CÓ ĐÓNG DẤU ĐỎ "BẢN XEM THỬ — CHƯA TRỪ CÔNG NỢ,
+           KHÔNG DÙNG ĐỂ PHÁT TIỀN", và KHÔNG in số đợt. Bắt buộc phải có:
+           tờ xem thử mà giống hệt tờ thật thì sẽ có người cầm nhầm đi phát
+           tiền, hệ thống không ghi nhận gì, mất tiền mà không ai lần ra.
+
+           mpInA4 đổi tham số cuối từ laInLai (true/false) sang kieu:
+             'that' tờ chính thức · 'lai' bản in lại · 'thu' bản xem thử
+
+           XUẤT EXCEL DÙNG SHEETJS CÓ SẴN, cố ý KHÔNG nạp ExcelJS. Ba máy
+           cân mạng chập chờn; thêm một thư viện tải từ mạng là thêm một
+           chỗ hỏng đúng lúc cần dùng. Vì vậy file xuất không kẻ khung,
+           không in đậm — chỉ có độ rộng cột và định dạng số. Muốn đẹp như
+           file phần mềm cũ thì làm ở V1.15.0 cùng với báo cáo Số dư.
+
 ================================================================================
   HẾT PHẦN BÀN GIAO
 ================================================================================
@@ -1031,7 +1053,7 @@
   <div class="brand-row">
     <div class="brand">
       <div class="brand-title">⚖️ Cân Tôm</div>
-      <div class="brand-status"><span class="ver-badge">V1.14.0</span> · <span id="cloudStatus"></span></div>
+      <div class="brand-status"><span class="ver-badge">V1.14.1</span> · <span id="cloudStatus"></span></div>
     </div>
     <div id="currentUserBar" class="hidden brand-user">
       <span>👤 <span id="currentUserNameLabel"></span></span>
@@ -1392,6 +1414,12 @@
       </div>
       <div id="mpDaChiTin"></div>
       <div id="mpTongWrap"></div>
+      <div style="display:flex;gap:8px;margin-top:8px;">
+        <button class="btn btn-outline" id="mpNutInThu" style="flex:1;"
+                onclick="mpInThu()">🖨️ In thử</button>
+        <button class="btn btn-outline" id="mpNutExcel" style="flex:1;"
+                onclick="mpXuatExcel()">📊 Xuất Excel</button>
+      </div>
       <button class="btn btn-primary btn-block" id="mpNutIn" style="margin-top:8px;"
               onclick="mpInVaChi()">🖨️ In A4 &amp; trừ công nợ</button>
       <div id="mpKetQua" style="margin-top:7px;font-size:13px;"></div>
@@ -5554,7 +5582,57 @@ function mpInVaChi(){
   document.getElementById('mpKetQua').innerHTML =
     `<span style="color:var(--moss);font-weight:600;">✅ Đã lập đợt ${maDot} cho ${chon.length} người.
      Cần in lại thì vào mục "Đã mua".</span>`;
-  mpInA4(maDot, d.dateKey, d.nguoiCan, chon, false);
+  mpInA4(maDot, d.dateKey, d.nguoiCan, chon, 'that');
+}
+
+/* IN THỬ — chỉ xem trước, KHÔNG ghi phiếu chi, KHÔNG đụng công nợ.
+   Tờ in ra có đóng dấu đỏ để không ai cầm nhầm đi phát tiền. */
+function mpInThu(){
+  const d = mpDungBang();
+  if(d.chuaTai){ alert('Chưa tải xong phiếu của ngày này'); return; }
+  const chon = mpDaChon(d.rows);
+  if(!chon.length){ alert('Chưa chọn ai để xem thử'); return; }
+  mpInA4('', d.dateKey, d.nguoiCan, chon, 'thu');
+}
+
+/* XUẤT EXCEL — cũng chỉ đọc, KHÔNG đụng công nợ.
+   Dùng SheetJS đã có sẵn trong app, không nạp thêm thư viện nào:
+   ba máy cân có lúc mạng chập chờn, thêm thư viện tải từ mạng là
+   thêm một chỗ hỏng đúng lúc cần dùng. */
+function mpXuatExcel(){
+  if(!requirePerm('exportExcel')) return;
+  const d = mpDungBang();
+  if(d.chuaTai){ alert('Chưa tải xong phiếu của ngày này'); return; }
+  const chon = mpDaChon(d.rows);
+  if(!chon.length){ alert('Không có dòng nào để xuất'); return; }
+  const u = d.nguoiCan ? staffUsers.find(x=>x.id === d.nguoiCan) : null;
+  const aoa = [];
+  if(companyInfo.name)    aoa.push([companyInfo.name]);
+  if(companyInfo.address) aoa.push([companyInfo.address]);
+  if(companyInfo.phone)   aoa.push(['ĐT: ' + companyInfo.phone]);
+  aoa.push([]);
+  aoa.push(['BẢNG TRẢ TIỀN CÔNG NGÀY ' + mpNgayVN(d.dateKey)]);
+  aoa.push(['Người cân: ' + (u ? u.name : 'Tất cả') + ' · Phí mua phiếu 1%']);
+  aoa.push([]);
+  aoa.push(['STT','Mã','Họ và tên','Tiền công','Phí 1%','Thực nhận','Ký nhận']);
+  chon.forEach((r,i)=> aoa.push([i+1, r.code, r.name, r.tienCong, r.phi, r.thucNhan, '']));
+  const tongCong = chon.reduce((s,r)=>s+r.tienCong, 0);
+  const tongPhi  = chon.reduce((s,r)=>s+r.phi, 0);
+  aoa.push(['', '', 'TỔNG CỘNG — ' + chon.length + ' người', tongCong, tongPhi, tongCong - tongPhi, '']);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:5},{wch:9},{wch:26},{wch:13},{wch:10},{wch:13},{wch:14}];
+  // Định dạng số có phân nhóm nghìn cho ba cột tiền
+  const dong0 = aoa.length - chon.length - 1;          // dòng đầu tiên của dữ liệu
+  for(let i = 0; i <= chon.length; i++){
+    ['D','E','F'].forEach(cot=>{
+      const o = ws[cot + (dong0 + i + 1)];
+      if(o && typeof o.v === 'number') o.z = '#,##0';
+    });
+  }
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Mua phieu');
+  XLSX.writeFile(wb, 'mua-phieu-' + d.dateKey + '.xlsx');
 }
 
 /* Danh sách đợt — gom thẳng từ payments.muaPhieuId, không có kho riêng. */
@@ -5606,10 +5684,14 @@ function mpInLai(maDot){
     return { employeeId:p.employeeId, code: e?e.code:'', name: e?e.name:'(không rõ)',
              tienCong: am, phi, thucNhan: am - phi };
   }).sort((a,b)=> String(a.code).localeCompare(String(b.code), 'vi', { numeric:true }));
-  mpInA4(maDot, ngayCan, '', rows, true);
+  mpInA4(maDot, ngayCan, '', rows, 'lai');
 }
 
-function mpInA4(maDot, ngayCan, nguoiCanId, rows, laInLai){
+/* kieu: 'that' = tờ chính thức vừa trừ nợ
+         'lai'  = in lại một đợt đã lập
+         'thu'  = XEM THỬ, chưa trừ gì — phải đóng dấu rõ để không ai
+                  cầm nhầm tờ này đi phát tiền mà hệ thống không biết */
+function mpInA4(maDot, ngayCan, nguoiCanId, rows, kieu){
   const tongCong = rows.reduce((s,r)=>s+r.tienCong, 0);
   const tongPhi  = rows.reduce((s,r)=>s+r.phi, 0);
   const tongNhan = tongCong - tongPhi;
@@ -5637,9 +5719,13 @@ function mpInA4(maDot, ngayCan, nguoiCanId, rows, laInLai){
         ${companyInfo.address ? `<div class="co-sub">${escapeHtml(companyInfo.address)}</div>` : ''}
         ${companyInfo.phone ? `<div class="co-sub">ĐT: ${escapeHtml(companyInfo.phone)}</div>` : ''}
         <h2>BẢNG TRẢ TIỀN CÔNG NGÀY ${mpNgayVN(ngayCan)}</h2>
-        <div class="period">Người cân: ${escapeHtml(tenNguoiCan)} · Phí mua phiếu 1%
-          · Số đợt: <b>${escapeHtml(maDot)}</b>${laInLai ? ' · <b>BẢN IN LẠI</b>' : ''}</div>
+        <div class="period">Người cân: ${escapeHtml(tenNguoiCan)} · Phí mua phiếu 1%${
+          kieu === 'thu' ? '' : ' · Số đợt: <b>' + escapeHtml(maDot) + '</b>'}${
+          kieu === 'lai' ? ' · <b>BẢN IN LẠI</b>' : ''}</div>
       </div>
+      ${kieu === 'thu' ? `<div style="border:2px solid #C0392B;color:#C0392B;font-weight:700;
+        text-align:center;padding:7px;margin:10px 0 4px;letter-spacing:1px;font-size:13px;">
+        BẢN XEM THỬ — CHƯA TRỪ CÔNG NỢ, KHÔNG DÙNG ĐỂ PHÁT TIỀN</div>` : ''}
       <table class="report-print-table">
         <thead><tr>
           <th style="text-align:center;width:36px;">STT</th><th style="text-align:center;width:56px;">Mã</th>
@@ -5665,7 +5751,7 @@ function mpInA4(maDot, ngayCan, nguoiCanId, rows, laInLai){
         <div style="width:33%;">Giám đốc<br><br><br>_____________</div>
       </div>
       <div style="margin-top:14px;font-size:9.5px;color:#888;text-align:right;">
-        ${escapeHtml(maDot)} · in ${gioIn}</div>
+        ${kieu === 'thu' ? 'BẢN XEM THỬ' : escapeHtml(maDot)} · in ${gioIn}</div>
     </div>`;
   window.print();
 }
